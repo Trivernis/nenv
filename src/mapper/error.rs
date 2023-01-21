@@ -19,10 +19,10 @@ pub enum MapperError {
         ConfigError,
     ),
 
-    #[error("Failed to execute mapped command: {0}")]
+    #[error("Failed to execute mapped command")]
     Command(#[from] CommandError),
 
-    #[error("IO Error: {0}")]
+    #[error("IO operation failed")]
     Io(#[from] io::Error),
 
     #[error("Failed to map directory {src:?}")]

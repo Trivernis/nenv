@@ -19,7 +19,7 @@ pub enum CommandError {
     #[error(transparent)]
     Io(#[from] io::Error),
 
-    #[error("The command {0:?} could not be found")]
+    #[error("The command {0:?} could not be found for this nodejs version")]
     NotFound(PathBuf),
 }
 
