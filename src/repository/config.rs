@@ -7,10 +7,13 @@ use tokio::fs;
 
 use crate::consts::{CFG_FILE_PATH, NODE_DIST_URL};
 
+use super::NodeVersion;
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Config {
     pub dist_base_url: String,
-    pub default_version: String,
+    #[serde(with = "NodeVersion")]
+    pub default_version: NodeVersion,
 }
 
 pub type ConfigResult<T> = Result<T, ConfigError>;
@@ -41,7 +44,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             dist_base_url: String::from(NODE_DIST_URL),
-            default_version: String::from("latest"),
+            default_version: NodeVersion::LatestLts,
         }
     }
 }
@@ -51,7 +54,7 @@ impl Config {
     pub async fn load() -> ConfigResult<Self> {
         if !CFG_FILE_PATH.exists() {
             let cfg = Config::default();
-            fs::write(&*CFG_FILE_PATH, toml::to_string_pretty(&cfg)?).await?;
+            cfg.save().await?;
 
             Ok(cfg)
         } else {
@@ -60,5 +63,16 @@ impl Config {
 
             Ok(cfg)
         }
+    }
+
+    pub async fn save(&self) -> ConfigResult<()> {
+        fs::write(&*CFG_FILE_PATH, toml::to_string_pretty(&self)?).await?;
+
+        Ok(())
+    }
+
+    pub async fn set_default_version(&mut self, default_version: NodeVersion) -> ConfigResult<()> {
+        self.default_version = default_version;
+        self.save().await
     }
 }

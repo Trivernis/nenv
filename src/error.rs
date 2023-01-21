@@ -4,6 +4,7 @@ use miette::Diagnostic;
 use thiserror::Error;
 
 use crate::{
+    mapper::error::MapperError,
     repository::{config::ConfigError, extract::ExtractError},
     web_api::error::ApiError,
 };
@@ -36,6 +37,13 @@ pub enum Error {
         #[source]
         #[diagnostic_source]
         ConfigError,
+    ),
+    #[error("Mapper failed: {0}")]
+    Mapper(
+        #[from]
+        #[source]
+        #[diagnostic_source]
+        MapperError,
     ),
 
     #[error("IO Error: {0}")]

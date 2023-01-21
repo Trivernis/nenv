@@ -1,6 +1,11 @@
-use std::path::{Path, PathBuf};
+use core::fmt;
+use std::{
+    path::{Path, PathBuf},
+    str::FromStr,
+};
 
 use semver::{Version, VersionReq};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use tokio::{
     fs::{self, File},
     io::BufWriter,
@@ -18,6 +23,7 @@ pub mod config;
 pub(crate) mod extract;
 pub mod versions;
 
+#[derive(Clone, Debug)]
 pub enum NodeVersion {
     Latest,
     LatestLts,
@@ -25,10 +31,55 @@ pub enum NodeVersion {
     Req(VersionReq),
 }
 
+impl FromStr for NodeVersion {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let input = s.to_lowercase();
+
+        let version = match &*input {
+            "latest" => Self::Latest,
+            "lts" => Self::LatestLts,
+            _ => {
+                if let Ok(req) = VersionReq::parse(s) {
+                    Self::Req(req)
+                } else {
+                    Self::Lts(s.to_lowercase())
+                }
+            }
+        };
+
+        Ok(version)
+    }
+}
+
+impl NodeVersion {
+    pub fn deserialize<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let string = String::deserialize(deserializer)?;
+        Self::from_str(&string).map_err(serde::de::Error::custom)
+    }
+
+    pub fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.to_string().serialize(serializer)
+    }
+}
+
+impl fmt::Display for NodeVersion {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            NodeVersion::Latest => String::from("latest"),
+            NodeVersion::LatestLts => String::from("lts"),
+            NodeVersion::Lts(name) => name.to_owned(),
+            NodeVersion::Req(req) => req.to_string(),
+        }
+        .fmt(f)
+    }
+}
+
 pub struct Repository {
     versions: Versions,
     web_api: WebApi,
-    config: Config,
+    pub config: Config,
 }
 
 impl Repository {
@@ -62,9 +113,30 @@ impl Repository {
         Ok(())
     }
 
+    /// Returns a list of installed versions
+    pub async fn installed_versions(&self) -> LibResult<Vec<Version>> {
+        let mut versions = Vec::new();
+        let mut iter = fs::read_dir(&*NODE_VERSIONS_DIR).await?;
+
+        while let Some(entry) = iter.next_entry().await? {
+            if let Ok(version) = Version::parse(entry.file_name().to_string_lossy().as_ref()) {
+                versions.push(version);
+            };
+        }
+
+        Ok(versions)
+    }
+
+    /// Returns if the given version is installed
+    pub async fn is_installed(&self, version: &NodeVersion) -> LibResult<bool> {
+        let info = self.parse_req(version);
+
+        Ok(self.installed_versions().await?.contains(&info.version))
+    }
+
     /// Installs a specified node version
-    pub async fn install_version(&self, version_req: NodeVersion) -> LibResult<()> {
-        let info = self.parse_req(version_req);
+    pub async fn install_version(&self, version_req: &NodeVersion) -> LibResult<()> {
+        let info = self.parse_req(&version_req);
         let archive_path = self.download_version(&info.version).await?;
         self.extract_archive(info, &archive_path)?;
 
@@ -92,7 +164,7 @@ impl Repository {
         Ok(())
     }
 
-    fn parse_req(&self, version_req: NodeVersion) -> &VersionInfo {
+    fn parse_req(&self, version_req: &NodeVersion) -> &VersionInfo {
         match version_req {
             NodeVersion::Latest => self.versions.latest(),
             NodeVersion::LatestLts => self.versions.latest_lts(),
