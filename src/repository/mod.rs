@@ -15,7 +15,7 @@ use crate::{
     consts::{
         ARCH, BIN_DIR, CACHE_DIR, CFG_DIR, DATA_DIR, NODE_ARCHIVE_SUFFIX, NODE_VERSIONS_DIR, OS,
     },
-    error::LibResult,
+    error::{LibResult, VersionError},
     web_api::{VersionInfo, WebApi},
 };
 
@@ -117,15 +117,15 @@ impl Repository {
     }
 
     /// Returns the path for the given node version
-    pub fn get_version_path(&self, version: &NodeVersion) -> Option<NodePath> {
-        let info = self.parse_req(&version);
+    pub fn get_version_path(&self, version: &NodeVersion) -> LibResult<Option<NodePath>> {
+        let info = self.parse_req(&version)?;
         let path = build_version_path(&info.version);
 
-        if path.exists() {
+        Ok(if path.exists() {
             Some(NodePath::new(path))
         } else {
             None
-        }
+        })
     }
 
     /// Returns a list of installed versions
@@ -143,15 +143,15 @@ impl Repository {
     }
 
     /// Returns if the given version is installed
-    pub fn is_installed(&self, version: &NodeVersion) -> bool {
-        let info = self.parse_req(version);
+    pub fn is_installed(&self, version: &NodeVersion) -> LibResult<bool> {
+        let info = self.parse_req(version)?;
 
-        build_version_path(&info.version).exists()
+        Ok(build_version_path(&info.version).exists())
     }
 
     /// Installs a specified node version
     pub async fn install_version(&self, version_req: &NodeVersion) -> LibResult<()> {
-        let info = self.parse_req(&version_req);
+        let info = self.parse_req(&version_req)?;
         let archive_path = self.download_version(&info.version).await?;
         self.extract_archive(info, &archive_path)?;
 
@@ -179,16 +179,21 @@ impl Repository {
         Ok(())
     }
 
-    fn parse_req(&self, version_req: &NodeVersion) -> &VersionInfo {
-        match version_req {
+    fn parse_req(&self, version_req: &NodeVersion) -> Result<&VersionInfo, VersionError> {
+        let version = match version_req {
             NodeVersion::Latest => self.versions.latest(),
             NodeVersion::LatestLts => self.versions.latest_lts(),
-            NodeVersion::Lts(lts) => self.versions.get_lts(&lts).expect("Version not found"),
+            NodeVersion::Lts(lts) => self
+                .versions
+                .get_lts(&lts)
+                .ok_or_else(|| VersionError::UnkownVersion(lts.to_owned()))?,
             NodeVersion::Req(req) => self
                 .versions
                 .get_fulfilling(&req)
-                .expect("Version not found"),
-        }
+                .ok_or_else(|| VersionError::Unfulfillable(req.to_owned()))?,
+        };
+
+        Ok(version)
     }
 }
 

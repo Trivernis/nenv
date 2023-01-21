@@ -4,7 +4,7 @@ use tokio::fs;
 
 use crate::{
     consts::BIN_DIR,
-    error::LibResult,
+    error::{LibResult, VersionError},
     repository::{NodeVersion, Repository},
 };
 
@@ -60,7 +60,7 @@ impl Mapper {
     pub async fn exec(&self, command: String, args: Vec<OsString>) -> LibResult<ExitStatus> {
         let node_path = self
             .repo
-            .get_version_path(&self.active_version)
+            .get_version_path(&self.active_version)?
             .expect("version not installed");
         let executable = node_path.bin().join(command);
         let exit_status = MappedCommand::new(executable, args)
@@ -101,8 +101,8 @@ impl Mapper {
     async fn map_active_version(&self) -> LibResult<()> {
         let dir = self
             .repo
-            .get_version_path(&self.active_version)
-            .expect("missing version");
+            .get_version_path(&self.active_version)?
+            .ok_or_else(|| VersionError::NotInstalled(self.active_version.to_string()))?;
         map_node_bin(dir).await?;
 
         Ok(())

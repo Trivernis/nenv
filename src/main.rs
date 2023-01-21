@@ -6,7 +6,7 @@ use clap::Parser;
 mod args;
 
 #[tokio::main(flavor = "current_thread")]
-async fn main() -> nenv::error::Result<()> {
+async fn main() -> color_eyre::eyre::Result<()> {
     color_eyre::install().unwrap();
     let args: Args = Args::parse();
 
@@ -20,7 +20,9 @@ async fn main() -> nenv::error::Result<()> {
             process::exit(exit_code);
         }
         args::Command::Refresh => nenv::refresh().await,
-    }
+    }?;
+
+    Ok(())
 }
 
 fn print_version() {

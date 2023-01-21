@@ -1,7 +1,5 @@
 use std::{
     ffi::OsString,
-    io::{stderr, stdin, stdout},
-    os::fd::{AsRawFd, FromRawFd},
     path::PathBuf,
     process::{ExitStatus, Stdio},
 };
@@ -35,18 +33,11 @@ impl MappedCommand {
         if !self.path.exists() {
             return Err(CommandError::NotFound(self.path));
         }
-        let (stdin, stdout, stderr) = unsafe {
-            (
-                Stdio::from_raw_fd(stdin().as_raw_fd()),
-                Stdio::from_raw_fd(stdout().as_raw_fd()),
-                Stdio::from_raw_fd(stderr().as_raw_fd()),
-            )
-        };
         let exit_status = Command::new(self.path)
             .args(self.args)
-            .stdin(stdin)
-            .stdout(stdout)
-            .stderr(stderr)
+            .stdin(Stdio::inherit())
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit())
             .spawn()?
             .wait()
             .await?;
