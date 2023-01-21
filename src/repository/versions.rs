@@ -10,6 +10,7 @@ use crate::{consts::VERSION_FILE_PATH, error::LibResult, web_api::VersionInfo};
 pub struct Versions {
     lts_versions: HashMap<String, VersionReq>,
     versions: HashMap<Version, VersionInfo>,
+    sorted_versions: Vec<Version>,
 }
 
 impl Versions {
@@ -35,6 +36,12 @@ impl Versions {
                 ))
             })
             .collect::<HashMap<_, _>>();
+        let mut sorted_versions = all_versions
+            .iter()
+            .map(|v| v.version.to_owned())
+            .collect::<Vec<_>>();
+        sorted_versions.sort();
+
         let versions = all_versions
             .into_iter()
             .map(|v| (v.version.to_owned(), v))
@@ -43,6 +50,7 @@ impl Versions {
         Self {
             lts_versions,
             versions,
+            sorted_versions,
         }
     }
 
@@ -55,11 +63,8 @@ impl Versions {
 
     /// Returns the latest known node version
     pub fn latest(&self) -> &VersionInfo {
-        let mut versions = self.versions.keys().collect::<Vec<_>>();
-        versions.sort();
-
         self.versions
-            .get(versions.last().expect("No known node versions"))
+            .get(self.sorted_versions.last().expect("No known node versions"))
             .unwrap()
     }
 
@@ -82,13 +87,12 @@ impl Versions {
 
     /// Returns any version that fulfills the given requirement
     pub fn get_fulfilling(&self, req: &VersionReq) -> Option<&VersionInfo> {
-        let mut versions = self
-            .versions
-            .keys()
+        let fulfilling_versions = self
+            .sorted_versions
+            .iter()
             .filter(|v| req.matches(v))
             .collect::<Vec<_>>();
-        versions.sort();
 
-        self.versions.get(versions.last()?)
+        self.versions.get(fulfilling_versions.last()?)
     }
 }

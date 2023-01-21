@@ -19,7 +19,7 @@ pub async fn install_version(version: NodeVersion) -> Result<()> {
     fs::remove_file(&*VERSION_FILE_PATH).await?;
     let repo = get_repository().await?;
 
-    if repo.is_installed(&version).await? {
+    if repo.is_installed(&version) {
         if !Confirm::new()
             .with_prompt("The version {version} is already installed. Reinstall?")
             .default(false)
@@ -38,7 +38,7 @@ pub async fn install_version(version: NodeVersion) -> Result<()> {
 pub async fn set_default_version(version: NodeVersion) -> Result<()> {
     let mut mapper = get_mapper().await?;
 
-    if !mapper.repository().is_installed(&version).await?
+    if !mapper.repository().is_installed(&version)
         && Confirm::new()
             .with_prompt(format!(
                 "The version {version} is not installed. Do you want to install it?"
@@ -56,11 +56,12 @@ pub async fn set_default_version(version: NodeVersion) -> Result<()> {
     Ok(())
 }
 
+#[inline]
 pub async fn exec(command: String, args: Vec<OsString>) -> Result<i32> {
     let mapper = get_mapper().await?;
     let active_version = mapper.active_version();
 
-    if !mapper.repository().is_installed(active_version).await? {
+    if !mapper.repository().is_installed(active_version) {
         mapper.repository().install_version(&active_version).await?;
     }
     let exit_status = mapper.exec(command, args).await?;

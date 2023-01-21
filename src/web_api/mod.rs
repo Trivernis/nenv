@@ -3,7 +3,10 @@ use std::{
     fmt::{Debug, Display},
 };
 
-use crate::{consts::NODE_ARCHIVE_SUFFIX, utils::progress_bar};
+use crate::{
+    consts::{NODE_ARCHIVE_SUFFIX, NODE_DIST_URL},
+    utils::progress_bar,
+};
 
 use self::error::{ApiError, ApiResult};
 
@@ -26,7 +29,7 @@ pub struct WebApi {
 
 impl Default for WebApi {
     fn default() -> Self {
-        Self::new("https://nodejs.org/dist")
+        Self::new(NODE_DIST_URL)
     }
 }
 

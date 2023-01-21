@@ -90,15 +90,7 @@ impl Repository {
     pub async fn init(config: Config) -> LibResult<Self> {
         Self::create_folders().await?;
         let web_api = WebApi::new(&config.dist_base_url);
-
-        let versions = if let Some(v) = Versions::load().await {
-            v
-        } else {
-            let all_versions = web_api.get_versions().await?;
-            let v = Versions::new(all_versions);
-            v.save().await?;
-            v
-        };
+        let versions = load_versions(&web_api).await?;
 
         Ok(Self {
             config,
@@ -125,24 +117,15 @@ impl Repository {
     }
 
     /// Returns the path for the given node version
-    pub async fn get_version_path(&self, version: &NodeVersion) -> LibResult<Option<NodePath>> {
+    pub fn get_version_path(&self, version: &NodeVersion) -> Option<NodePath> {
         let info = self.parse_req(&version);
-        let mut iter = fs::read_dir(&*NODE_VERSIONS_DIR).await?;
-        let mut path = None;
+        let path = build_version_path(&info.version);
 
-        while let Some(entry) = iter.next_entry().await? {
-            if let Ok(version) = Version::parse(entry.file_name().to_string_lossy().as_ref()) {
-                if version == info.version {
-                    path = Some(entry.path());
-                }
-            };
+        if path.exists() {
+            Some(NodePath::new(path))
+        } else {
+            None
         }
-        let Some(path) = path else {
-            return Ok(None);
-        };
-        let path = path.join(format!("node-v{}-{}-{}", info.version, OS, ARCH));
-
-        Ok(Some(NodePath::new(path)))
     }
 
     /// Returns a list of installed versions
@@ -160,10 +143,10 @@ impl Repository {
     }
 
     /// Returns if the given version is installed
-    pub async fn is_installed(&self, version: &NodeVersion) -> LibResult<bool> {
+    pub fn is_installed(&self, version: &NodeVersion) -> bool {
         let info = self.parse_req(version);
 
-        Ok(self.installed_versions().await?.contains(&info.version))
+        build_version_path(&info.version).exists()
     }
 
     /// Installs a specified node version
@@ -207,4 +190,23 @@ impl Repository {
                 .expect("Version not found"),
         }
     }
+}
+
+#[inline]
+async fn load_versions(web_api: &WebApi) -> Result<Versions, crate::error::Error> {
+    let versions = if let Some(v) = Versions::load().await {
+        v
+    } else {
+        let all_versions = web_api.get_versions().await?;
+        let v = Versions::new(all_versions);
+        v.save().await?;
+        v
+    };
+    Ok(versions)
+}
+
+fn build_version_path(version: &Version) -> PathBuf {
+    NODE_VERSIONS_DIR
+        .join(version.to_string())
+        .join(format!("node-v{}-{}-{}", version, OS, ARCH))
 }

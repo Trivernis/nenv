@@ -58,11 +58,9 @@ impl Mapper {
 
     /// Executes a mapped command with the given node environment
     pub async fn exec(&self, command: String, args: Vec<OsString>) -> LibResult<ExitStatus> {
-        self.map_active_version().await?;
         let node_path = self
             .repo
             .get_version_path(&self.active_version)
-            .await?
             .expect("version not installed");
         let executable = node_path.bin().join(command);
         let exit_status = MappedCommand::new(executable, args)
@@ -104,7 +102,6 @@ impl Mapper {
         let dir = self
             .repo
             .get_version_path(&self.active_version)
-            .await?
             .expect("missing version");
         map_node_bin(dir).await?;
 

@@ -9,6 +9,7 @@ mod args;
 async fn main() -> nenv::error::Result<()> {
     color_eyre::install().unwrap();
     let args: Args = Args::parse();
+
     match args.commmand {
         args::Command::Version => Ok(print_version()),
         args::Command::Install(v) => nenv::install_version(v.version).await,
