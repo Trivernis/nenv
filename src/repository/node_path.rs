@@ -9,7 +9,13 @@ impl NodePath {
         Self { base }
     }
 
+    #[cfg(not(target_os = "windows"))]
     pub fn bin(&self) -> PathBuf {
         self.base.join("bin")
+    }
+
+    #[cfg(target_os = "windows")]
+    pub fn bin(&self) -> PathBuf {
+        self.base.to_owned()
     }
 }
