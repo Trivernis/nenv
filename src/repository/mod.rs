@@ -118,7 +118,7 @@ impl Repository {
 
     /// Returns the path for the given node version
     pub fn get_version_path(&self, version: &NodeVersion) -> LibResult<Option<NodePath>> {
-        let info = self.parse_req(&version)?;
+        let info = self.lookup_version(&version)?;
         let path = build_version_path(&info.version);
 
         Ok(if path.exists() {
@@ -144,14 +144,37 @@ impl Repository {
 
     /// Returns if the given version is installed
     pub fn is_installed(&self, version: &NodeVersion) -> LibResult<bool> {
-        let info = self.parse_req(version)?;
+        let info = self.lookup_version(version)?;
 
         Ok(build_version_path(&info.version).exists())
     }
 
+    /// Performs a lookup for the given node version
+    pub fn lookup_version(&self, version_req: &NodeVersion) -> Result<&VersionInfo, VersionError> {
+        let version = match version_req {
+            NodeVersion::Latest => self.versions.latest(),
+            NodeVersion::LatestLts => self.versions.latest_lts(),
+            NodeVersion::Lts(lts) => self
+                .versions
+                .get_lts(&lts)
+                .ok_or_else(|| VersionError::UnkownVersion(lts.to_owned()))?,
+            NodeVersion::Req(req) => self
+                .versions
+                .get_fulfilling(&req)
+                .ok_or_else(|| VersionError::Unfulfillable(req.to_owned()))?,
+        };
+
+        Ok(version)
+    }
+
+    /// Returns the reference to all known versions
+    pub fn all_versions(&self) -> &Versions {
+        &self.versions
+    }
+
     /// Installs a specified node version
     pub async fn install_version(&self, version_req: &NodeVersion) -> LibResult<()> {
-        let info = self.parse_req(&version_req)?;
+        let info = self.lookup_version(&version_req)?;
         let archive_path = self.download_version(&info.version).await?;
         self.extract_archive(info, &archive_path)?;
 
@@ -177,23 +200,6 @@ impl Repository {
         extract::extract_file(archive_path, &dst_path)?;
 
         Ok(())
-    }
-
-    fn parse_req(&self, version_req: &NodeVersion) -> Result<&VersionInfo, VersionError> {
-        let version = match version_req {
-            NodeVersion::Latest => self.versions.latest(),
-            NodeVersion::LatestLts => self.versions.latest_lts(),
-            NodeVersion::Lts(lts) => self
-                .versions
-                .get_lts(&lts)
-                .ok_or_else(|| VersionError::UnkownVersion(lts.to_owned()))?,
-            NodeVersion::Req(req) => self
-                .versions
-                .get_fulfilling(&req)
-                .ok_or_else(|| VersionError::Unfulfillable(req.to_owned()))?,
-        };
-
-        Ok(version)
     }
 }
 

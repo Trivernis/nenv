@@ -15,6 +15,8 @@ use dialoguer::Confirm;
 use error::Result;
 use tokio::fs;
 
+use crate::error::VersionError;
+
 pub async fn install_version(version: NodeVersion) -> Result<()> {
     if VERSION_FILE_PATH.exists() {
         fs::remove_file(&*VERSION_FILE_PATH).await?;
@@ -74,6 +76,37 @@ pub async fn exec(command: String, args: Vec<OsString>) -> Result<i32> {
 pub async fn refresh() -> Result<()> {
     get_mapper().await?.remap().await?;
     fs::remove_file(&*VERSION_FILE_PATH).await?;
+
+    Ok(())
+}
+
+pub async fn list_versions() -> Result<()> {
+    let mapper = get_mapper().await?;
+    let versions = mapper.repository().installed_versions().await?;
+    let active_version = mapper
+        .repository()
+        .lookup_version(mapper.active_version())?;
+
+    println!("{}", "Installed versions:".bold());
+
+    for version in versions {
+        let info = mapper
+            .repository()
+            .all_versions()
+            .get(&version)
+            .ok_or_else(|| VersionError::UnkownVersion(version.to_string()))?;
+        let lts = info
+            .lts
+            .as_ref()
+            .map(|l| format!(" ({})", l.to_owned().green()))
+            .unwrap_or_default();
+
+        if version == active_version.version {
+            println!(" {}{} [current]", version.to_string().blue().bold(), lts)
+        } else {
+            println!(" {}{}", version.to_string().blue(), lts)
+        }
+    }
 
     Ok(())
 }

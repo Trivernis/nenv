@@ -95,4 +95,9 @@ impl Versions {
 
         self.versions.get(fulfilling_versions.last()?)
     }
+
+    /// Returns the info for the given version
+    pub fn get(&self, version: &Version) -> Option<&VersionInfo> {
+        self.versions.get(version)
+    }
 }

@@ -19,6 +19,7 @@ async fn main() -> miette::Result<()> {
             process::exit(exit_code);
         }
         args::Command::Refresh => nenv::refresh().await,
+        args::Command::ListVersions => nenv::list_versions().await,
     }?;
 
     Ok(())

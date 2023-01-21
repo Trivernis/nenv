@@ -28,6 +28,10 @@ pub enum Command {
     #[command()]
     Refresh,
 
+    /// Lists all available versions
+    #[command(name = "list-versions")]
+    ListVersions,
+
     /// Executes the given version specific  node executable
     #[command()]
     Exec(ExecArgs),
