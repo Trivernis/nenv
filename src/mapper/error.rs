@@ -3,6 +3,8 @@ use thiserror::Error;
 
 use crate::repository::config::ConfigError;
 
+use super::mapped_command::CommandError;
+
 pub type MapperResult<T> = Result<T, MapperError>;
 
 #[derive(Error, Diagnostic, Debug)]
@@ -14,4 +16,7 @@ pub enum MapperError {
         #[diagnostic_source]
         ConfigError,
     ),
+
+    #[error("Failed to execute mapped command: {0}")]
+    Command(#[from] CommandError),
 }

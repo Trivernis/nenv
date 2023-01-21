@@ -1,16 +1,13 @@
 use std::{
-    fs::{self, File},
+    fs::File,
     io::{self, BufReader},
     path::Path,
 };
 
-use libflate::gzip::Decoder;
 use miette::Diagnostic;
-use tar::Archive;
 use thiserror::Error;
-use zip::ZipArchive;
 
-use crate::utils::{progress_bar, progress_spinner};
+use crate::utils::progress_spinner;
 type ExtractResult<T> = Result<T, ExtractError>;
 
 #[derive(Error, Debug, Diagnostic)]
@@ -38,9 +35,13 @@ pub fn extract_file(src: &Path, dst: &Path) -> ExtractResult<()> {
     Ok(())
 }
 
+#[cfg(not(target_os = "windows"))]
 fn extract_tar_gz(src: &Path, dst: &Path) -> ExtractResult<()> {
-    let mut reader = BufReader::new(File::open(src)?);
-    let mut decoder = Decoder::new(reader)?;
+    use libflate::gzip::Decoder;
+    use tar::Archive;
+
+    let reader = BufReader::new(File::open(src)?);
+    let decoder = Decoder::new(reader)?;
     let mut archive = Archive::new(decoder);
     let pb = progress_spinner();
     pb.set_message("Extracting tar.gz archive");
@@ -51,7 +52,11 @@ fn extract_tar_gz(src: &Path, dst: &Path) -> ExtractResult<()> {
     Ok(())
 }
 
+#[cfg(target_os = "windows")]
 fn extract_zip(src: &Path, dst: &Path) -> ExtractResult<()> {
+    use crate::utils::progress_bar;
+    use std::fs;
+    use zip::ZipArchive;
     let mut archive = ZipArchive::new(File::open(src)?)?;
 
     let pb = progress_bar(archive.len() as u64);

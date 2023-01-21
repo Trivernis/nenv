@@ -1,10 +1,17 @@
-use std::{env, str::FromStr};
+use std::{env, ffi::OsString, process::ExitStatus, str::FromStr};
 
-use crate::repository::{NodeVersion, Repository};
+use crate::{
+    error::LibResult,
+    repository::{NodeVersion, Repository},
+};
 
-use self::error::MapperResult;
+use self::{
+    error::{MapperError, MapperResult},
+    mapped_command::MappedCommand,
+};
 
 pub mod error;
+mod mapped_command;
 /// Responsible for mapping to node executables
 /// and managing node versions
 pub struct Mapper {
@@ -39,6 +46,22 @@ impl Mapper {
 
     pub fn active_version(&self) -> &NodeVersion {
         &self.active_version
+    }
+
+    /// Executes a mapped command with the given node environment
+    pub async fn exec(&self, command: String, args: Vec<OsString>) -> LibResult<ExitStatus> {
+        let node_path = self
+            .repo
+            .get_version_path(&self.active_version)
+            .await?
+            .expect("version not installed");
+        let executable = node_path.bin().join(command);
+        let exit_status = MappedCommand::new(executable, args)
+            .run()
+            .await
+            .map_err(MapperError::from)?;
+
+        Ok(exit_status)
     }
 
     fn get_version() -> Option<NodeVersion> {

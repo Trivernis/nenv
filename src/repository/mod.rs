@@ -12,15 +12,18 @@ use tokio::{
 };
 
 use crate::{
-    consts::{BIN_DIR, CACHE_DIR, CFG_DIR, DATA_DIR, NODE_ARCHIVE_SUFFIX, NODE_VERSIONS_DIR},
+    consts::{
+        ARCH, BIN_DIR, CACHE_DIR, CFG_DIR, DATA_DIR, NODE_ARCHIVE_SUFFIX, NODE_VERSIONS_DIR, OS,
+    },
     error::LibResult,
     web_api::{VersionInfo, WebApi},
 };
 
-use self::{config::Config, versions::Versions};
+use self::{config::Config, node_paths::NodePath, versions::Versions};
 
 pub mod config;
 pub(crate) mod extract;
+mod node_paths;
 pub mod versions;
 
 #[derive(Clone, Debug)]
@@ -111,6 +114,27 @@ impl Repository {
         }
 
         Ok(())
+    }
+
+    /// Returns the path for the given node version
+    pub async fn get_version_path(&self, version: &NodeVersion) -> LibResult<Option<NodePath>> {
+        let info = self.parse_req(&version);
+        let mut iter = fs::read_dir(&*NODE_VERSIONS_DIR).await?;
+        let mut path = None;
+
+        while let Some(entry) = iter.next_entry().await? {
+            if let Ok(version) = Version::parse(entry.file_name().to_string_lossy().as_ref()) {
+                if version == info.version {
+                    path = Some(entry.path());
+                }
+            };
+        }
+        let Some(path) = path else {
+            return Ok(None);
+        };
+        let path = path.join(format!("node-v{}-{}-{}", info.version, OS, ARCH));
+
+        Ok(Some(NodePath::new(path)))
     }
 
     /// Returns a list of installed versions

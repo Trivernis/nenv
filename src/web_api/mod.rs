@@ -1,13 +1,12 @@
 use std::{
     cmp::min,
     fmt::{Debug, Display},
-    time::Duration,
 };
 
 use crate::{consts::NODE_ARCHIVE_SUFFIX, utils::progress_bar};
 
 use self::error::{ApiError, ApiResult};
-use indicatif::{ProgressBar, ProgressStyle};
+
 use reqwest::Client;
 
 pub mod error;

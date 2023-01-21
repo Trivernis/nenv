@@ -1,6 +1,5 @@
 use std::io;
 
-use lazy_static::__Deref;
 use miette::Diagnostic;
 use thiserror::Error;
 

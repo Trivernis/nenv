@@ -1,8 +1,7 @@
-use std::str::FromStr;
+use std::ffi::OsString;
 
 use clap::{Parser, Subcommand};
 use nenv::repository::NodeVersion;
-use semver::VersionReq;
 
 #[derive(Clone, Debug, Parser)]
 #[clap(infer_subcommands = true)]
@@ -19,16 +18,23 @@ pub enum Command {
     #[command()]
     Use(UseArgs),
 
-    #[command()]
-    Default,
-
     #[command(short_flag = 'v', aliases = &["--version"])]
     Version,
+
+    #[command()]
+    Exec(ExecArgs),
+}
+
+#[derive(Clone, Debug, Parser)]
+pub struct ExecArgs {
+    #[arg()]
+    pub command: String,
+    #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+    pub args: Vec<OsString>,
 }
 
 #[derive(Clone, Debug, Parser)]
 pub struct InstallArgs {
-    #[arg()]
     pub version: NodeVersion,
 }
 

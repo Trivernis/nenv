@@ -1,3 +1,5 @@
+use std::ffi::OsString;
+
 use crossterm::style::Stylize;
 use mapper::Mapper;
 use repository::{config::Config, NodeVersion, Repository};
@@ -49,6 +51,18 @@ pub async fn use_version(version: NodeVersion) -> Result<()> {
     println!("Now using {}", version.to_string().bold());
 
     Ok(())
+}
+
+pub async fn exec(command: String, args: Vec<OsString>) -> Result<i32> {
+    let mapper = get_mapper().await?;
+    let active_version = mapper.active_version();
+
+    if !mapper.repository().is_installed(active_version).await? {
+        mapper.repository().install_version(&active_version).await?;
+    }
+    let exit_status = mapper.exec(command, args).await?;
+
+    Ok(exit_status.code().unwrap_or(0))
 }
 
 async fn get_repository() -> Result<Repository> {
