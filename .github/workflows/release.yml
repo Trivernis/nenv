@@ -9,6 +9,8 @@ jobs:
   create-release-draft:
     name: pre-release
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     outputs:
       release_upload_url: ${{ steps.create_release.outputs.upload_url }}
     steps:
@@ -16,14 +18,11 @@ jobs:
         if: ${{ !env.ACT }}
 
       - id: create_release
-        uses: marvinpinto/action-automatic-releases@latest
+        uses: ncipollo/release-action@v1
         if: ${{ !env.ACT }}
         with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          automatic_release_tag: latest
           draft: true
-          title: Latest Pre-Release
-          files: |
+          artifacts: |
             LICENSE
 
   build-release:
@@ -33,6 +32,8 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v2
         if: ${{ !env.ACT }}
