@@ -23,7 +23,7 @@ futures-util = "0.3.25"
 indicatif = "0.17.3"
 lazy_static = "1.4.0"
 libflate = "1.2.0"
-miette = "5.5.0"
+miette = { version = "5.5.0", features = ["fancy"] }
 reqwest = { version = "0.11.14", features = ["json", "stream"] }
 semver = { version = "1.0.16", features = ["std", "serde"] }
 serde = { version = "1.0.152", features = ["derive"] }
