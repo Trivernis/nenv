@@ -3,7 +3,10 @@ use std::io;
 use miette::Diagnostic;
 use thiserror::Error;
 
-use crate::web_api::error::ApiError;
+use crate::{
+    repository::{config::ConfigError, extract::ExtractError},
+    web_api::error::ApiError,
+};
 
 pub(crate) type LibResult<T> = Result<T>;
 pub(crate) type LibError = Error;
@@ -18,6 +21,21 @@ pub enum Error {
         #[source]
         #[diagnostic_source]
         ApiError,
+    ),
+    #[error("Failed to extract archive: {0}")]
+    Extract(
+        #[from]
+        #[source]
+        #[diagnostic_source]
+        ExtractError,
+    ),
+
+    #[error("Failed to load config file: {0}")]
+    Config(
+        #[from]
+        #[source]
+        #[diagnostic_source]
+        ConfigError,
     ),
 
     #[error("IO Error: {0}")]

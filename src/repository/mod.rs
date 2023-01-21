@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use semver::{Version, VersionReq};
 use tokio::{
@@ -15,6 +15,7 @@ use crate::{
 use self::{config::Config, versions::Versions};
 
 pub mod config;
+pub(crate) mod extract;
 pub mod versions;
 
 pub enum NodeVersion {
@@ -61,21 +62,34 @@ impl Repository {
         Ok(())
     }
 
+    /// Installs a specified node version
     pub async fn install_version(&self, version_req: NodeVersion) -> LibResult<()> {
         let info = self.parse_req(version_req);
         let archive_path = self.download_version(&info.version).await?;
+        self.extract_archive(info, &archive_path)?;
 
-        todo!()
+        Ok(())
     }
 
     async fn download_version(&self, version: &Version) -> LibResult<PathBuf> {
         let download_path = CACHE_DIR.join(format!("node-v{}{}", version, *NODE_ARCHIVE_SUFFIX));
+
+        if download_path.exists() {
+            return Ok(download_path);
+        }
         let mut download_writer = BufWriter::new(File::create(&download_path).await?);
         self.web_api
             .download_version(version.to_string(), &mut download_writer)
             .await?;
 
         Ok(download_path)
+    }
+
+    fn extract_archive(&self, info: &VersionInfo, archive_path: &Path) -> LibResult<()> {
+        let dst_path = NODE_VERSIONS_DIR.join(info.version.to_string());
+        extract::extract_file(archive_path, &dst_path)?;
+
+        Ok(())
     }
 
     fn parse_req(&self, version_req: NodeVersion) -> &VersionInfo {

@@ -4,7 +4,7 @@ use std::{
     time::Duration,
 };
 
-use crate::consts::NODE_ARCHIVE_SUFFIX;
+use crate::{consts::NODE_ARCHIVE_SUFFIX, utils::progress_bar};
 
 use self::error::{ApiError, ApiResult};
 use indicatif::{ProgressBar, ProgressStyle};
@@ -73,16 +73,8 @@ impl WebApi {
         let total_size = res
             .content_length()
             .ok_or_else(|| ApiError::other("Missing content length"))?;
-        let pb = ProgressBar::new(total_size);
+        let pb = progress_bar(total_size);
         pb.set_message(format!("Downloading node v{version}"));
-        pb.set_style(
-            ProgressStyle::default_bar()
-                .template(
-                    "{msg} {spinner}\n[{wide_bar}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})",
-                )
-                .unwrap(),
-        );
-        pb.enable_steady_tick(Duration::from_millis(50));
         let mut stream = res.bytes_stream();
         let mut total_downloaded = 0;
 

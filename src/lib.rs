@@ -3,6 +3,7 @@ use repository::{config::Config, NodeVersion, Repository};
 mod consts;
 pub mod error;
 pub mod repository;
+mod utils;
 mod web_api;
 use error::Result;
 
@@ -11,5 +12,5 @@ pub async fn install_version(version: NodeVersion) -> Result<()> {
 }
 
 async fn get_repository() -> Result<Repository> {
-    Repository::init(Config::default()).await
+    Repository::init(Config::load().await?).await
 }
