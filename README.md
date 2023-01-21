@@ -2,6 +2,12 @@
 
 Node environment manager written in rust.
 
+## Features
+
+- Written in fast and safe rust
+- Multiple active nodejs versions at the same time
+- Configuration for project specific versions with the `engines.node` field in the package.json
+- Version matching with semver expressions
 
 ## Installation
 

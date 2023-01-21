@@ -53,7 +53,9 @@ jobs:
 
       - uses: vimtor/action-zip@v1
         with:
-          files: target/release/nenv*
+          files: | 
+            target/release/nenv
+            target/release/nenv.exe
           dest: nenv-${{ runner.os }}.zip
 
       - name: Upload Release Asset
