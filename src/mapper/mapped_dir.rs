@@ -1,8 +1,4 @@
-use std::{
-    collections::HashSet,
-    io,
-    path::{Path, PathBuf},
-};
+use std::{collections::HashSet, io, path::Path};
 
 use tokio::fs::{self, DirEntry};
 
@@ -49,7 +45,7 @@ impl NodeApp {
     async fn write_wrapper_script(&self, path: &Path) -> Result<(), io::Error> {
         fs::write(
             path.with_extension("bat"),
-            format!("nenv exec {} %*", self.name),
+            format!("@echo off\nnenv exec {} %*", self.name),
         )
         .await?;
         let src_metadata = self.info.metadata().await?;
@@ -75,7 +71,7 @@ pub async fn map_node_bin(node_path: NodePath) -> MapperResult<()> {
     Ok(())
 }
 
-async fn get_applications(path: &PathBuf) -> MapperResult<Vec<NodeApp>> {
+async fn get_applications(path: &Path) -> MapperResult<Vec<NodeApp>> {
     let mut files = Vec::new();
     let mut iter = fs::read_dir(path)
         .await
@@ -85,10 +81,28 @@ async fn get_applications(path: &PathBuf) -> MapperResult<Vec<NodeApp>> {
         })?;
 
     while let Some(entry) = iter.next_entry().await? {
-        if entry.path().is_file() {
+        let entry_path = entry.path();
+
+        if entry_path.is_file() || !exclude_path(&entry_path) {
             files.push(NodeApp::new(entry));
         }
     }
 
     Ok(files)
+}
+
+#[cfg(not(target_os = "windows"))]
+fn exclude_path(_path: &Path) -> bool {
+    false
+}
+
+#[cfg(target_os = "windows")]
+fn exclude_path(path: &Path) -> bool {
+    let Some(extension) = path.extension() else {
+        return true;
+    };
+    let extension = extension.to_string_lossy();
+    let allowed_extensions = ["exe", "bat", "cmd", "ps1"];
+
+    allowed_extensions.contains(&extension.as_ref())
 }
