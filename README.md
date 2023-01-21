@@ -5,8 +5,15 @@ Node environment manager written in rust.
 
 ## Installation
 
-Figure out how to install it yourself (for now).
-Add the nenv `bin` directory to your PATH variable.
+You can either
+- Install the application with cargo by downloading the repo and running `cargo install --path .` inside
+- Download the binary from the releases page
+
+Now to initialize everything install any nodejs version with `nenv install <version>`.
+Afterwards add the `bin` directory to your `PATH` variable.
+
+On windows this should be `C:\Users\<yourusername>\AppData\Roaming\nenv\bin`.
+On linux this will should be `~/.local/share/nenv/bin`.
 
 ## Usage
 
@@ -33,6 +40,12 @@ nenv default latest
 
 ```sh
 nenv refresh
+```
+
+### List nodejs versions
+
+```sh
+nenv list-versions
 ```
 
 
