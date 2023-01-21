@@ -8,11 +8,16 @@ use crate::{
     repository::{NodeVersion, Repository},
 };
 
-use self::{error::MapperError, mapped_command::MappedCommand, mapped_dir::map_node_bin};
+use self::{
+    error::MapperError, mapped_command::MappedCommand, mapped_dir::map_node_bin,
+    package_info::PackageInfo,
+};
 
 pub mod error;
 mod mapped_command;
 mod mapped_dir;
+mod package_info;
+
 /// Responsible for mapping to node executables
 /// and managing node versions
 pub struct Mapper {
@@ -21,9 +26,10 @@ pub struct Mapper {
 }
 
 impl Mapper {
-    pub fn new(repository: Repository) -> Self {
-        let version =
-            Self::get_version().unwrap_or_else(|| repository.config.default_version.to_owned());
+    pub async fn load(repository: Repository) -> Self {
+        let version = Self::get_version()
+            .await
+            .unwrap_or_else(|| repository.config.default_version.to_owned());
         Self {
             repo: repository,
             active_version: version,
@@ -77,10 +83,20 @@ impl Mapper {
         Ok(())
     }
 
-    fn get_version() -> Option<NodeVersion> {
-        env::var("NODE_VERSION")
+    async fn get_version() -> Option<NodeVersion> {
+        if let Some(version) = PackageInfo::find()
+            .await
             .ok()
-            .and_then(|v| NodeVersion::from_str(&v).ok())
+            .and_then(|i| i)
+            .and_then(|i| i.engines)
+            .and_then(|e| e.node)
+        {
+            Some(NodeVersion::Req(version))
+        } else {
+            env::var("NODE_VERSION")
+                .ok()
+                .and_then(|v| NodeVersion::from_str(&v).ok())
+        }
     }
 
     /// creates wrapper scripts for the current version

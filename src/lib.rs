@@ -1,6 +1,6 @@
 use std::ffi::OsString;
 
-use consts::{DATA_DIR, VERSION_FILE_PATH};
+use consts::VERSION_FILE_PATH;
 use crossterm::style::Stylize;
 use mapper::Mapper;
 use repository::{config::Config, NodeVersion, Repository};
@@ -80,5 +80,5 @@ async fn get_repository() -> Result<Repository> {
 }
 
 async fn get_mapper() -> Result<Mapper> {
-    Ok(Mapper::new(get_repository().await?))
+    Ok(Mapper::load(get_repository().await?).await)
 }
