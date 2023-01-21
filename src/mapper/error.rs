@@ -1,4 +1,4 @@
-use std::io;
+use std::{io, path::PathBuf};
 
 use miette::Diagnostic;
 use thiserror::Error;
@@ -24,4 +24,12 @@ pub enum MapperError {
 
     #[error("IO Error: {0}")]
     Io(#[from] io::Error),
+
+    #[error("Failed to map directory {src:?}")]
+    DirMapping {
+        src: PathBuf,
+
+        #[source]
+        err: io::Error,
+    },
 }
