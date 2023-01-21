@@ -19,11 +19,11 @@ use crate::{
     web_api::{VersionInfo, WebApi},
 };
 
-use self::{config::Config, node_paths::NodePath, versions::Versions};
+use self::{config::Config, node_path::NodePath, versions::Versions};
 
 pub mod config;
 pub(crate) mod extract;
-mod node_paths;
+pub(crate) mod node_path;
 pub mod versions;
 
 #[derive(Clone, Debug)]

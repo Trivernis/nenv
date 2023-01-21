@@ -1,3 +1,5 @@
+use std::io;
+
 use miette::Diagnostic;
 use thiserror::Error;
 
@@ -19,4 +21,7 @@ pub enum MapperError {
 
     #[error("Failed to execute mapped command: {0}")]
     Command(#[from] CommandError),
+
+    #[error("IO Error: {0}")]
+    Io(#[from] io::Error),
 }
