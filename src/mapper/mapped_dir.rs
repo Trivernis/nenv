@@ -104,5 +104,5 @@ fn exclude_path(path: &Path) -> bool {
     let extension = extension.to_string_lossy();
     let allowed_extensions = ["exe", "bat", "cmd", "ps1"];
 
-    allowed_extensions.contains(&extension.as_ref())
+    !allowed_extensions.contains(&extension.as_ref())
 }
