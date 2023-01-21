@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::fs;
 
-use crate::consts::{CFG_FILE_PATH, NODE_DIST_URL};
+use crate::consts::{CFG_DIR, CFG_FILE_PATH, NODE_DIST_URL};
 
 use super::NodeVersion;
 
@@ -53,6 +53,9 @@ impl Config {
     /// Loads the config file from the default config path
     pub async fn load() -> ConfigResult<Self> {
         if !CFG_FILE_PATH.exists() {
+            if !CFG_DIR.exists() {
+                fs::create_dir_all(&*CFG_DIR).await?;
+            }
             let cfg = Config::default();
             cfg.save().await?;
 
