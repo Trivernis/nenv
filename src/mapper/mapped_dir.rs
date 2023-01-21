@@ -83,7 +83,7 @@ async fn get_applications(path: &Path) -> MapperResult<Vec<NodeApp>> {
     while let Some(entry) = iter.next_entry().await? {
         let entry_path = entry.path();
 
-        if entry_path.is_file() || !exclude_path(&entry_path) {
+        if entry_path.is_file() && !exclude_path(&entry_path) {
             files.push(NodeApp::new(entry));
         }
     }
