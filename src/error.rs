@@ -44,6 +44,8 @@ pub enum Error {
         #[diagnostic_source]
         MapperError,
     ),
+    #[error("Failed to work with json: {0}")]
+    Json(#[from] serde_json::Error),
 
     #[error("IO Error: {0}")]
     Io(#[from] io::Error),

@@ -90,12 +90,20 @@ impl Repository {
     pub async fn init(config: Config) -> LibResult<Self> {
         Self::create_folders().await?;
         let web_api = WebApi::new(&config.dist_base_url);
-        let all_versions = web_api.get_versions().await?;
+
+        let versions = if let Some(v) = Versions::load().await {
+            v
+        } else {
+            let all_versions = web_api.get_versions().await?;
+            let v = Versions::new(all_versions);
+            v.save().await?;
+            v
+        };
 
         Ok(Self {
             config,
             web_api,
-            versions: Versions::new(all_versions),
+            versions,
         })
     }
 

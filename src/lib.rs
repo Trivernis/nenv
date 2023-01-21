@@ -1,5 +1,6 @@
 use std::ffi::OsString;
 
+use consts::{DATA_DIR, VERSION_FILE_PATH};
 use crossterm::style::Stylize;
 use mapper::Mapper;
 use repository::{config::Config, NodeVersion, Repository};
@@ -12,8 +13,10 @@ mod utils;
 mod web_api;
 use dialoguer::Confirm;
 use error::Result;
+use tokio::fs;
 
 pub async fn install_version(version: NodeVersion) -> Result<()> {
+    fs::remove_file(&*VERSION_FILE_PATH).await?;
     let repo = get_repository().await?;
 
     if repo.is_installed(&version).await? {
@@ -32,7 +35,7 @@ pub async fn install_version(version: NodeVersion) -> Result<()> {
     Ok(())
 }
 
-pub async fn use_version(version: NodeVersion) -> Result<()> {
+pub async fn set_default_version(version: NodeVersion) -> Result<()> {
     let mut mapper = get_mapper().await?;
 
     if !mapper.repository().is_installed(&version).await?
@@ -47,7 +50,7 @@ pub async fn use_version(version: NodeVersion) -> Result<()> {
         mapper.repository().install_version(&version).await?;
     }
 
-    mapper.use_version(&version).await?;
+    mapper.set_default_version(&version).await?;
     println!("Now using {}", version.to_string().bold());
 
     Ok(())
@@ -63,6 +66,13 @@ pub async fn exec(command: String, args: Vec<OsString>) -> Result<i32> {
     let exit_status = mapper.exec(command, args).await?;
 
     Ok(exit_status.code().unwrap_or(0))
+}
+
+pub async fn refresh() -> Result<()> {
+    get_mapper().await?.remap().await?;
+    fs::remove_file(&*VERSION_FILE_PATH).await?;
+
+    Ok(())
 }
 
 async fn get_repository() -> Result<Repository> {

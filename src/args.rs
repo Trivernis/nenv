@@ -12,34 +12,46 @@ pub struct Args {
 
 #[derive(Clone, Debug, Subcommand)]
 pub enum Command {
-    #[command()]
-    Install(InstallArgs),
-
-    #[command()]
-    Use(UseArgs),
-
+    /// Returns the nenv version
     #[command(short_flag = 'v', aliases = &["--version"])]
     Version,
 
+    /// Installs the given node version
+    #[command()]
+    Install(InstallArgs),
+
+    /// Sets the specified version as the global default
+    #[command()]
+    Default(DefaultArgs),
+
+    /// Refreshes the node environment mappings and cache
+    #[command()]
+    Refresh,
+
+    /// Executes the given version specific  node executable
     #[command()]
     Exec(ExecArgs),
 }
 
 #[derive(Clone, Debug, Parser)]
 pub struct ExecArgs {
+    /// The command to execute
     #[arg()]
     pub command: String,
+
+    /// The arguments for the command
     #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
     pub args: Vec<OsString>,
 }
 
 #[derive(Clone, Debug, Parser)]
 pub struct InstallArgs {
+    /// the version to install
     pub version: NodeVersion,
 }
 
 #[derive(Clone, Debug, Parser)]
-pub struct UseArgs {
-    #[arg()]
+pub struct DefaultArgs {
+    /// The version to set as default
     pub version: NodeVersion,
 }

@@ -1,6 +1,9 @@
 use std::{env, ffi::OsString, process::ExitStatus, str::FromStr};
 
+use tokio::fs;
+
 use crate::{
+    consts::BIN_DIR,
     error::LibResult,
     repository::{NodeVersion, Repository},
 };
@@ -32,7 +35,7 @@ impl Mapper {
     }
 
     /// Sets the given version as the default one
-    pub async fn use_version(&mut self, version: &NodeVersion) -> LibResult<()> {
+    pub async fn set_default_version(&mut self, version: &NodeVersion) -> LibResult<()> {
         self.repo
             .config
             .set_default_version(version.clone())
@@ -60,8 +63,18 @@ impl Mapper {
             .run()
             .await
             .map_err(MapperError::from)?;
+        self.map_active_version().await?;
 
         Ok(exit_status)
+    }
+
+    /// Recreates all environment mappings
+    pub async fn remap(&self) -> LibResult<()> {
+        fs::remove_dir_all(&*BIN_DIR).await?;
+        fs::create_dir_all(&*BIN_DIR).await?;
+        self.map_active_version().await?;
+
+        Ok(())
     }
 
     fn get_version() -> Option<NodeVersion> {

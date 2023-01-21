@@ -11,43 +11,31 @@ use super::error::MapperResult;
 
 struct NodeApp {
     info: DirEntry,
+    name: String,
 }
 
 impl NodeApp {
     pub fn new(info: DirEntry) -> Self {
-        Self { info }
+        let path = info.path();
+        let name = path.file_stem().unwrap();
+        let name = name.to_string_lossy().into_owned();
+
+        Self { info, name }
     }
 
-    /// returns the name of the application
-    pub fn name(&self) -> String {
-        let name = self.info.file_name();
-        name.to_string_lossy().into_owned()
-    }
-
-    pub async fn unmap(&self) -> MapperResult<()> {
-        fs::remove_file(self.info.path()).await?;
-
-        Ok(())
+    pub fn name(&self) -> &String {
+        &self.name
     }
 
     /// creates wrappers to map this application
     pub async fn map_executable(&self) -> MapperResult<()> {
         let src_path = BIN_DIR.join(self.info.file_name());
-        let name = self.info.file_name();
-        let name = name.to_string_lossy();
-        self.write_wrapper_script(&name, &src_path).await
+        self.write_wrapper_script(&src_path).await
     }
 
     #[cfg(not(target_os = "windows"))]
-    async fn write_wrapper_script(&self, name: &str, path: &Path) -> MapperResult<()> {
-        fs::write(
-            path,
-            format!(
-                r#"#!/bin/sh
-                nenv exec {name} "$@""#
-            ),
-        )
-        .await?;
+    async fn write_wrapper_script(&self, path: &Path) -> MapperResult<()> {
+        fs::write(path, format!("#!/bin/sh\nnenv exec {} \"$@\"", self.name)).await?;
         let src_metadata = self.info.metadata().await?;
         fs::set_permissions(&path, src_metadata.permissions()).await?;
 
@@ -55,8 +43,13 @@ impl NodeApp {
     }
 
     #[cfg(target_os = "windows")]
-    async fn write_wrapper_script(&self, name: &str, path: &Path) -> MapperResult<()> {
-        fs::write(path, format!("nenv exec {name} %*")).await?;
+    async fn write_wrapper_script(&self, path: &Path) -> MapperResult<()> {
+        fs::write(
+            path.with_extension("bat"),
+            format!("nenv exec {} %*", self.name),
+        )
+        .await?;
+        let src_metadata = self.info.metadata().await?;
         fs::set_permissions(&path, src_metadata.permissions()).await?;
 
         Ok(())
@@ -64,19 +57,17 @@ impl NodeApp {
 }
 
 pub async fn map_node_bin(node_path: NodePath) -> MapperResult<()> {
-    let applications = get_applications(&node_path.bin()).await?;
-    let mapped_applications = get_applications(&*BIN_DIR).await?;
-    let mut new_mapped = HashSet::new();
+    let mapped_app_names = get_applications(&*BIN_DIR)
+        .await?
+        .iter()
+        .map(NodeApp::name)
+        .cloned()
+        .collect::<HashSet<_>>();
 
-    for application in applications {
-        application.map_executable().await?;
-        new_mapped.insert(application.name());
-    }
-    for app in mapped_applications {
-        if !new_mapped.contains(&app.name()) {
-            app.unmap().await?;
-        }
-    }
+    let mut applications = get_applications(&node_path.bin()).await?;
+    applications.retain(|app| !mapped_app_names.contains(app.name()));
+
+    futures::future::join_all(applications.iter().map(NodeApp::map_executable)).await;
 
     Ok(())
 }

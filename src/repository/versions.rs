@@ -1,15 +1,29 @@
 use std::collections::HashMap;
 
 use semver::{Version, VersionReq};
+use serde::{Deserialize, Serialize};
+use tokio::fs;
 
-use crate::web_api::VersionInfo;
+use crate::{consts::VERSION_FILE_PATH, error::LibResult, web_api::VersionInfo};
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Versions {
     lts_versions: HashMap<String, VersionReq>,
     versions: HashMap<Version, VersionInfo>,
 }
 
 impl Versions {
+    /// Loads the versions from the cached versions.json file
+    pub(crate) async fn load() -> Option<Self> {
+        if !VERSION_FILE_PATH.exists() {
+            return None;
+        }
+        let versions_string = fs::read_to_string(&*VERSION_FILE_PATH).await.ok()?;
+        let versions = serde_json::from_str(&versions_string).ok()?;
+
+        Some(versions)
+    }
+
     /// creates a new instance to access version information
     pub fn new(all_versions: Vec<VersionInfo>) -> Self {
         let lts_versions = all_versions
@@ -30,6 +44,13 @@ impl Versions {
             lts_versions,
             versions,
         }
+    }
+
+    pub(crate) async fn save(&self) -> LibResult<()> {
+        let json_string = serde_json::to_string(&self)?;
+        fs::write(&*VERSION_FILE_PATH, json_string).await?;
+
+        Ok(())
     }
 
     /// Returns the latest known node version

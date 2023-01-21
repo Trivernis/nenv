@@ -1,10 +1,10 @@
 use std::borrow::Cow;
 
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize};
 
 /// Represents a single nodejs version info entry
 /// as retrieved from nodejs.org
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct VersionInfo {
     #[serde(deserialize_with = "deserialize_prefixed_version")]
     pub version: semver::Version,
@@ -19,7 +19,7 @@ pub struct VersionInfo {
     pub files: Vec<String>,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ModuleVersions {
     pub v8: String,
     pub npm: Option<String>,
