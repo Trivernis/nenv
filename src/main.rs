@@ -6,8 +6,7 @@ use clap::Parser;
 mod args;
 
 #[tokio::main(flavor = "current_thread")]
-async fn main() -> color_eyre::eyre::Result<()> {
-    color_eyre::install().unwrap();
+async fn main() -> miette::Result<()> {
     let args: Args = Args::parse();
 
     match args.commmand {

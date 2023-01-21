@@ -48,7 +48,7 @@ pub enum Error {
         MapperError,
     ),
 
-    #[error("The passed is invalid")]
+    #[error("The passed version is invalid")]
     Version(
         #[from]
         #[diagnostic_source]
