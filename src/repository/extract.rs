@@ -86,7 +86,7 @@ fn extract_zip(src: &Path, dst: &Path) -> ExtractResult<()> {
             tracing::debug!("Extracting to {output_path:?}");
             io::copy(&mut file, &mut file_output)?;
         }
-        pb.tick()
+        pb.inc(1);
     }
     pb.finish_with_message("Archive extracted.");
 
