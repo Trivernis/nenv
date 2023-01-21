@@ -54,19 +54,15 @@ impl MappedCommand {
 
     #[cfg(target_os = "windows")]
     fn adjust_path(&mut self) -> CommandResult<()> {
-        if !self.path.exists() {
-            let extensions = ["exe", "bat", "cmd", "ps1"];
-            for extension in &extensions {
-                let joined_path = self.path.with_extension(extension);
+        let extensions = ["exe", "bat", "cmd", "ps1"];
+        for extension in &extensions {
+            let joined_path = self.path.with_extension(extension);
 
-                if joined_path.exists() {
-                    self.path = joined_path;
-                    return Ok(());
-                }
+            if joined_path.exists() {
+                self.path = joined_path;
+                return Ok(());
             }
-            return Err(CommandError::NotFound(self.path.to_owned()));
         }
-
-        Ok(())
+        Err(CommandError::NotFound(self.path.to_owned()))
     }
 }
