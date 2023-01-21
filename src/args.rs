@@ -1,6 +1,7 @@
 use std::str::FromStr;
 
 use clap::{Parser, Subcommand};
+use semver::VersionReq;
 
 #[derive(Clone, Debug, Parser)]
 #[clap(infer_subcommands = true)]
@@ -44,8 +45,14 @@ impl FromStr for Version {
 
         let version = match &*input {
             "latest" => Self::Latest,
-            "lts" => Self::Lts,
-            _ => Self::SemVer(SemVersion::from_str(s)?),
+            "lts" => Self::LatestLts,
+            _ => {
+                if let Ok(req) = VersionReq::parse(s) {
+                    Self::Req(req)
+                } else {
+                    Self::Lts(s.to_lowercase())
+                }
+            }
         };
 
         Ok(version)
@@ -55,40 +62,7 @@ impl FromStr for Version {
 #[derive(Clone, Debug)]
 pub enum Version {
     Latest,
-    Lts,
-    SemVer(SemVersion),
-}
-
-#[derive(Clone, Debug)]
-pub struct SemVersion {
-    pub major: u8,
-    pub minor: Option<u8>,
-    pub patch: Option<u16>,
-}
-
-impl FromStr for SemVersion {
-    type Err = &'static str;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut major = s;
-        let mut minor = None;
-        let mut patch = None;
-
-        if let Some((maj, rest)) = s.split_once('.') {
-            major = maj;
-
-            if let Some((min, pat)) = rest.split_once('.') {
-                minor = Some(min.parse().map_err(|_| "minor is not a number")?);
-                patch = Some(pat.parse().map_err(|_| "patch is not a number")?);
-            } else {
-                minor = Some(rest.parse().map_err(|_| "minor is not a number")?);
-            }
-        }
-
-        Ok(Self {
-            major: major.parse().map_err(|_| "major is not a number")?,
-            minor,
-            patch,
-        })
-    }
+    LatestLts,
+    Lts(String),
+    Req(VersionReq),
 }

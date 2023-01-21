@@ -1,13 +1,15 @@
-mod consts;
-mod download;
-pub mod error;
-mod utils;
-mod web_api;
+use repository::{config::Config, NodeVersion, Repository};
 
-pub enum Version {
-    Latest,
-    Lts,
-    Specific(u8, Option<u8>, Option<u16>),
+mod consts;
+pub mod error;
+pub mod repository;
+mod web_api;
+use error::Result;
+
+pub async fn install_version(version: NodeVersion) -> Result<()> {
+    get_repository().await?.install_version(version).await
 }
 
-pub fn install(version: Version) {}
+async fn get_repository() -> Result<Repository> {
+    Repository::init(Config::default()).await
+}

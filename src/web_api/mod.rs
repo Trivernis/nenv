@@ -20,18 +20,18 @@ use tokio::io::{AsyncWrite, AsyncWriteExt};
 mod test;
 
 #[derive(Clone, Debug)]
-pub struct NodejsAccess {
+pub struct WebApi {
     base_url: String,
     client: Client,
 }
 
-impl Default for NodejsAccess {
+impl Default for WebApi {
     fn default() -> Self {
         Self::new("https://nodejs.org/dist")
     }
 }
 
-impl NodejsAccess {
+impl WebApi {
     /// Creates a new instance to access the nodejs website
     pub fn new<S: ToString>(base_url: S) -> Self {
         Self {

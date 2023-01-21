@@ -10,8 +10,11 @@ lazy_static! {
     pub static ref DATA_DIR: PathBuf = dirs::data_dir()
         .unwrap_or_else(|| PathBuf::from(".data"))
         .join(PathBuf::from("nenv"));
-    pub static ref NODE_PATH: PathBuf = DATA_DIR.join(PathBuf::from("current"));
-    pub static ref NODE_VERSIONS_PATH: PathBuf = DATA_DIR.join(PathBuf::from("versions"));
+    pub static ref CACHE_DIR: PathBuf = dirs::cache_dir()
+        .unwrap_or_else(|| PathBuf::from(".cache"))
+        .join(PathBuf::from("nenv"));
+    pub static ref BIN_DIR: PathBuf = DATA_DIR.join(PathBuf::from("bin"));
+    pub static ref NODE_VERSIONS_DIR: PathBuf = DATA_DIR.join(PathBuf::from("versions"));
     pub static ref NODE_ARCHIVE_SUFFIX: String = format!("-{OS}-{ARCH}.{ARCHIVE_TYPE}");
 }
 
