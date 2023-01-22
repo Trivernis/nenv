@@ -1,4 +1,7 @@
-use std::time::Duration;
+use std::{
+    path::{Path, PathBuf},
+    time::Duration,
+};
 
 use indicatif::{ProgressBar, ProgressStyle};
 
@@ -25,4 +28,28 @@ pub fn progress_spinner() -> ProgressBar {
     );
     pb.enable_steady_tick(Duration::from_millis(50));
     pb
+}
+
+pub fn find_in_parents<P: AsRef<Path>>(origin: PathBuf, name: P) -> Option<PathBuf> {
+    for part in dir_parts(origin) {
+        let file = part.join(&name);
+        if file.exists() {
+            return Some(file);
+        }
+    }
+
+    None
+}
+
+/// Returns a list of paths for the current dir up to the very top
+pub fn dir_parts(path: PathBuf) -> Vec<PathBuf> {
+    let mut current: &Path = &path;
+    let mut parts = vec![path.to_owned()];
+
+    while let Some(parent) = current.parent() {
+        current = parent;
+        parts.push(parent.to_owned())
+    }
+
+    parts
 }

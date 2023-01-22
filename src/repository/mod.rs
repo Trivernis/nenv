@@ -46,10 +46,12 @@ impl FromStr for NodeVersion {
             "latest" => Self::Latest,
             "lts" => Self::LatestLts,
             _ => {
-                if let Ok(req) = VersionReq::parse(s) {
+                let version_string = s.trim().trim_start_matches('v');
+
+                if let Ok(req) = VersionReq::parse(version_string) {
                     Self::Req(req)
                 } else {
-                    Self::Lts(s.to_lowercase())
+                    Self::Lts(version_string.to_lowercase())
                 }
             }
         };

@@ -32,7 +32,7 @@ async fn main() -> Result<()> {
         args::Command::Version => {
             print_version();
             Ok(())
-        },
+        }
         args::Command::Install(v) => install_version(v.version).await,
         args::Command::Default(v) => set_default_version(v.version).await,
         args::Command::Exec(args) => {
@@ -51,7 +51,8 @@ fn print_version() {
     println!("{} v{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
 }
 
-pub async fn install_version(version: NodeVersion) -> Result<()> {
+/// Installs a given node version
+async fn install_version(version: NodeVersion) -> Result<()> {
     if VERSION_FILE_PATH.exists() {
         fs::remove_file(&*VERSION_FILE_PATH)
             .await
@@ -59,14 +60,16 @@ pub async fn install_version(version: NodeVersion) -> Result<()> {
     }
     let repo = get_repository().await?;
 
-    if repo.is_installed(&version)? && !Confirm::new()
+    if repo.is_installed(&version)?
+        && !Confirm::new()
             .with_prompt(format!(
                 "The version {} is already installed. Reinstall?",
                 version.to_string().bold()
             ))
             .default(false)
             .interact()
-            .unwrap() {
+            .unwrap()
+    {
         return Ok(());
     }
     repo.install_version(&version).await?;
@@ -75,7 +78,8 @@ pub async fn install_version(version: NodeVersion) -> Result<()> {
     Ok(())
 }
 
-pub async fn set_default_version(version: NodeVersion) -> Result<()> {
+/// Sets a default system wide node version
+async fn set_default_version(version: NodeVersion) -> Result<()> {
     let mut mapper = get_mapper().await?;
 
     if !mapper.repository().is_installed(&version)?
@@ -96,8 +100,9 @@ pub async fn set_default_version(version: NodeVersion) -> Result<()> {
     Ok(())
 }
 
+/// Exectues a given command
 #[inline]
-pub async fn exec(command: String, args: Vec<OsString>) -> Result<i32> {
+async fn exec(command: String, args: Vec<OsString>) -> Result<i32> {
     let mapper = get_mapper().await?;
     let active_version = mapper.active_version();
 
@@ -109,7 +114,8 @@ pub async fn exec(command: String, args: Vec<OsString>) -> Result<i32> {
     Ok(exit_status.code().unwrap_or(0))
 }
 
-pub async fn refresh() -> Result<()> {
+/// Refreshes the version cache and mapped binaries
+async fn refresh() -> Result<()> {
     get_mapper().await?.remap().await?;
     fs::remove_file(&*VERSION_FILE_PATH)
         .await
@@ -119,7 +125,8 @@ pub async fn refresh() -> Result<()> {
     Ok(())
 }
 
-pub async fn list_versions() -> Result<()> {
+/// Lists all available node versions
+async fn list_versions() -> Result<()> {
     let mapper = get_mapper().await?;
     let versions = mapper.repository().installed_versions().await?;
     let active_version = mapper

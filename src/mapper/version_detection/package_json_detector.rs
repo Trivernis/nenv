@@ -6,7 +6,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio::fs;
 
-use crate::error::ParseJsonError;
+use crate::{error::ParseJsonError, repository::NodeVersion, utils::find_in_parents};
+
+use super::VersionDetector;
+
+pub struct PackageJsonDetector;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PackageInfo {
@@ -24,25 +28,25 @@ pub struct EngineInfo {
     other: HashMap<String, Value>,
 }
 
+#[async_trait::async_trait]
+impl VersionDetector for PackageJsonDetector {
+    async fn detect_version() -> Result<Option<crate::repository::NodeVersion>> {
+        Ok(PackageInfo::find()
+            .await?
+            .and_then(|p| p.engines)
+            .and_then(|e| e.node)
+            .map(NodeVersion::Req))
+    }
+}
+
 impl PackageInfo {
     pub async fn find() -> Result<Option<Self>> {
-        let mut dir = std::env::current_dir().into_diagnostic()?;
-        let file_path = dir.join("package.json");
+        let dir = std::env::current_dir().into_diagnostic()?;
 
-        if file_path.exists() {
-            let info = Self::load(&file_path).await?;
-
+        if let Some(path) = find_in_parents(dir, "package.json") {
+            let info = Self::load(&path).await?;
             Ok(Some(info))
         } else {
-            while let Some(parent) = dir.parent() {
-                dir = parent.to_owned();
-                let file_path = dir.join("package.json");
-
-                if file_path.exists() {
-                    let info = Self::load(&file_path).await?;
-                    return Ok(Some(info));
-                }
-            }
             Ok(None)
         }
     }

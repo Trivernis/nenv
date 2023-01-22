@@ -1,4 +1,4 @@
-use std::{env, ffi::OsString, process::ExitStatus, str::FromStr};
+use std::{ffi::OsString, process::ExitStatus};
 
 use tokio::fs;
 
@@ -8,12 +8,16 @@ use crate::{
     repository::{NodeVersion, Repository},
 };
 
-use self::{mapped_command::MappedCommand, mapped_dir::map_node_bin, package_info::PackageInfo};
+use self::{
+    mapped_command::MappedCommand,
+    mapped_dir::map_node_bin,
+    version_detection::{ParallelDetector, VersionDetector},
+};
 use miette::{IntoDiagnostic, Result};
 
 mod mapped_command;
 mod mapped_dir;
-mod package_info;
+mod version_detection;
 
 /// Responsible for mapping to node executables
 /// and managing node versions
@@ -76,19 +80,10 @@ impl Mapper {
     }
 
     async fn get_version() -> Option<NodeVersion> {
-        if let Some(version) = PackageInfo::find()
+        ParallelDetector::detect_version()
             .await
             .ok()
-            .and_then(|i| i)
-            .and_then(|i| i.engines)
-            .and_then(|e| e.node)
-        {
-            Some(NodeVersion::Req(version))
-        } else {
-            env::var("NODE_VERSION")
-                .ok()
-                .and_then(|v| NodeVersion::from_str(&v).ok())
-        }
+            .and_then(|v| v)
     }
 
     /// creates wrapper scripts for the current version
