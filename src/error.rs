@@ -79,8 +79,8 @@ pub struct SerializeJsonError {
 
 #[derive(Debug, Error, Diagnostic)]
 #[diagnostic(code(nenv::toml::deserialize))]
-#[error("Failed to parse the toml file.")]
-pub struct ParseTomlError {
+#[error("The config file could not parsed.")]
+pub struct ParseConfigError {
     #[source_code]
     src: NamedSource,
 
@@ -91,7 +91,7 @@ pub struct ParseTomlError {
     caused_by: toml::de::Error,
 }
 
-impl ParseTomlError {
+impl ParseConfigError {
     pub fn new(file_name: &str, src: String, caused_by: toml::de::Error) -> Self {
         let abs_pos = caused_by
             .line_col()

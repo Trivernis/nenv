@@ -6,23 +6,45 @@ use tokio::fs;
 use crate::error::SerializeTomlError;
 use crate::{
     consts::{CFG_DIR, CFG_FILE_PATH, NODE_DIST_URL},
-    error::ParseTomlError,
+    error::ParseConfigError,
 };
 
 use super::NodeVersion;
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Default, Serialize, Deserialize, Clone, Debug)]
 pub struct Config {
-    pub dist_base_url: String,
+    /// Node execution related config
+    pub node: NodeConfig,
+
+    /// Configuration for how to download node versions
+    pub download: DownloadConfig,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct NodeConfig {
+    /// The default version if no version is specified
+    /// in the `package.json` file or `NODE_VERSION` environment variable
     #[serde(with = "NodeVersion")]
     pub default_version: NodeVersion,
 }
 
-impl Default for Config {
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct DownloadConfig {
+    pub dist_base_url: String,
+}
+
+impl Default for NodeConfig {
+    fn default() -> Self {
+        Self {
+            default_version: NodeVersion::LatestLts,
+        }
+    }
+}
+
+impl Default for DownloadConfig {
     fn default() -> Self {
         Self {
             dist_base_url: String::from(NODE_DIST_URL),
-            default_version: NodeVersion::LatestLts,
         }
     }
 }
@@ -48,7 +70,7 @@ impl Config {
                 .context("reading config file")?;
 
             let cfg = toml::from_str(&cfg_string)
-                .map_err(|e| ParseTomlError::new("config.toml", cfg_string, e))?;
+                .map_err(|e| ParseConfigError::new("config.toml", cfg_string, e))?;
 
             Ok(cfg)
         }
@@ -67,7 +89,7 @@ impl Config {
     }
 
     pub async fn set_default_version(&mut self, default_version: NodeVersion) -> Result<()> {
-        self.default_version = default_version;
+        self.node.default_version = default_version;
         self.save().await
     }
 }

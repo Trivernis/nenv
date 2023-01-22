@@ -26,7 +26,7 @@ impl Mapper {
     pub async fn load(repository: Repository) -> Self {
         let version = Self::get_version()
             .await
-            .unwrap_or_else(|| repository.config.default_version.to_owned());
+            .unwrap_or_else(|| repository.config.node.default_version.to_owned());
         Self {
             repo: repository,
             active_version: version,

@@ -91,7 +91,7 @@ impl Repository {
     /// Initializes a new repository with the given confi
     pub async fn init(config: Config) -> Result<Self> {
         Self::create_folders().await?;
-        let web_api = WebApi::new(&config.dist_base_url);
+        let web_api = WebApi::new(&config.download.dist_base_url);
         let versions = load_versions(&web_api).await?;
 
         Ok(Self {
