@@ -55,7 +55,7 @@ impl NodeApp {
     }
 }
 
-pub async fn map_node_bin(node_path: NodePath) -> Result<()> {
+pub async fn map_node_bin(node_path: &NodePath) -> Result<()> {
     let mapped_app_names = get_applications(&BIN_DIR)
         .await?
         .iter()

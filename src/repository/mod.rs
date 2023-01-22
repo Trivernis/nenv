@@ -12,6 +12,7 @@ use tokio::{
 };
 
 use crate::{
+    config::ConfigAccess,
     consts::{
         ARCH, BIN_DIR, CACHE_DIR, CFG_DIR, DATA_DIR, NODE_ARCHIVE_SUFFIX, NODE_VERSIONS_DIR, OS,
     },
@@ -21,9 +22,8 @@ use crate::{
 
 use miette::{IntoDiagnostic, Result};
 
-use self::{config::Config, node_path::NodePath, versions::Versions};
+use self::{node_path::NodePath, versions::Versions};
 
-pub mod config;
 pub(crate) mod extract;
 pub(crate) mod node_path;
 pub mod versions;
@@ -86,21 +86,16 @@ impl fmt::Display for NodeVersion {
 pub struct Repository {
     versions: Versions,
     web_api: WebApi,
-    pub config: Config,
 }
 
 impl Repository {
     /// Initializes a new repository with the given confi
-    pub async fn init(config: Config) -> Result<Self> {
+    pub async fn init(config: ConfigAccess) -> Result<Self> {
         Self::create_folders().await?;
-        let web_api = WebApi::new(&config.download.dist_base_url);
+        let web_api = WebApi::new(&config.get().await.download.dist_base_url);
         let versions = load_versions(&web_api).await?;
 
-        Ok(Self {
-            config,
-            web_api,
-            versions,
-        })
+        Ok(Self { web_api, versions })
     }
 
     async fn create_folders() -> Result<()> {

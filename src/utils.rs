@@ -3,6 +3,7 @@ use std::{
     time::Duration,
 };
 
+use dialoguer::Confirm;
 use indicatif::{ProgressBar, ProgressStyle};
 
 pub fn progress_bar(total: u64) -> ProgressBar {
@@ -28,6 +29,14 @@ pub fn progress_spinner() -> ProgressBar {
     );
     pb.enable_steady_tick(Duration::from_millis(50));
     pb
+}
+
+pub fn prompt<S: ToString>(default: bool, prompt: S) -> bool {
+    Confirm::new()
+        .with_prompt(prompt.to_string())
+        .default(default)
+        .interact()
+        .unwrap()
 }
 
 pub fn find_in_parents<P: AsRef<Path>>(origin: PathBuf, name: P) -> Option<PathBuf> {

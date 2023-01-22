@@ -33,5 +33,6 @@ tokio = { version = "1.24.2", features = ["rt", "macros", "tracing", "net", "fs"
 toml = "0.5.11"
 tracing = "0.1.37"
 tracing-subscriber = "0.3.16"
+xkcd_unreachable = "0.1.1"
 zip = "0.6.3"
 

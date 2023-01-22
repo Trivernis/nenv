@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+#[derive(Clone, Debug)]
 pub struct NodePath {
     base: PathBuf,
 }

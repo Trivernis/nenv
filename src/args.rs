@@ -7,7 +7,7 @@ use clap::{Parser, Subcommand};
 #[clap(infer_subcommands = true)]
 pub struct Args {
     #[command(subcommand)]
-    pub commmand: Command,
+    pub command: Command,
 }
 
 #[derive(Clone, Debug, Subcommand)]
@@ -24,7 +24,8 @@ pub enum Command {
     #[command()]
     Default(DefaultArgs),
 
-    /// Refreshes the node environment mappings and cache
+    /// Refreshes the node environment mappings and cache.
+    /// This will erase all binary mappings not relevant to the current node version.
     #[command()]
     Refresh,
 
