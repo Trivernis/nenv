@@ -128,7 +128,7 @@ pub struct ReqwestError(#[from] reqwest::Error);
 #[derive(Debug, Error, Diagnostic)]
 #[diagnostic(
     code(nenv::exec::command),
-    help("Make sure you selected the correct node version and check if {path:?} exist.")
+    help("Make sure you selected the correct node version and check if {path:?} exists.")
 )]
 #[error("The command `{command}` could not be found for this node version.")]
 pub struct CommandNotFoundError {
