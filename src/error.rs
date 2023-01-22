@@ -16,6 +16,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, Error, Diagnostic)]
 pub enum Error {
+    #[diagnostic(code(nenv::web))]
     #[error("Failed to call nodejs.com api.")]
     Web(
         #[from]
@@ -24,6 +25,7 @@ pub enum Error {
         ApiError,
     ),
 
+    #[diagnostic(code(nenv::extract))]
     #[error("The node archive could not be extracted")]
     Extract(
         #[from]
@@ -32,14 +34,15 @@ pub enum Error {
         ExtractError,
     ),
 
+    #[diagnostic(code(nenv::config))]
     #[error("The config file could not be loaded")]
     Config(
         #[from]
-        #[source]
         #[diagnostic_source]
         ConfigError,
     ),
 
+    #[diagnostic(code(nenv::mapper))]
     #[error("Mapping failed")]
     Mapper(
         #[from]
@@ -48,6 +51,7 @@ pub enum Error {
         MapperError,
     ),
 
+    #[diagnostic(code(nenv::version))]
     #[error("The passed version is invalid")]
     Version(
         #[from]
@@ -55,9 +59,11 @@ pub enum Error {
         VersionError,
     ),
 
+    #[diagnostic(code(nenv::json))]
     #[error("Failed to work with json")]
     Json(#[from] serde_json::Error),
 
+    #[diagnostic(code(nenv::io))]
     #[error("Error during IO operation")]
     Io(#[from] io::Error),
 }

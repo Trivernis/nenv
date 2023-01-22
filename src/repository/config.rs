@@ -1,6 +1,6 @@
 use std::io;
 
-use miette::Diagnostic;
+use miette::{Diagnostic, NamedSource, SourceSpan};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::fs;
@@ -20,18 +20,27 @@ pub type ConfigResult<T> = Result<T, ConfigError>;
 
 #[derive(Error, Diagnostic, Debug)]
 pub enum ConfigError {
+    #[diagnostic(code(nenv::config::io))]
     #[error("IO Error: {0}")]
     Io(
         #[from]
         #[source]
         io::Error,
     ),
-    #[error("Failed to parse config file: {0}")]
-    Parse(
-        #[from]
+    #[diagnostic(code(nenv::config::parse))]
+    #[error("Failed to parse config file")]
+    #[diagnostic_source]
+    Parse {
+        #[source_code]
+        src: NamedSource,
+
+        #[label]
+        pos: Option<(usize, usize)>,
+
         #[source]
-        toml::de::Error,
-    ),
+        e: toml::de::Error,
+    },
+    #[diagnostic(code(nenv::config::write))]
     #[error("Failed to serialize config file: {0}")]
     Serialize(
         #[from]
@@ -62,7 +71,11 @@ impl Config {
             Ok(cfg)
         } else {
             let cfg_string = fs::read_to_string(&*CFG_FILE_PATH).await?;
-            let cfg = toml::from_str(&cfg_string)?;
+            let cfg = toml::from_str(&cfg_string).map_err(|e| ConfigError::Parse {
+                src: NamedSource::new("config.toml", cfg_string),
+                pos: e.line_col(),
+                e,
+            })?;
 
             Ok(cfg)
         }

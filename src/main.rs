@@ -7,6 +7,7 @@ mod args;
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> miette::Result<()> {
+    miette::set_panic_hook();
     let args: Args = Args::parse();
 
     match args.commmand {
