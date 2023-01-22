@@ -15,6 +15,7 @@ pub fn progress_bar(total: u64) -> ProgressBar {
     pb
 }
 
+#[cfg(not(target_os = "windows"))]
 pub fn progress_spinner() -> ProgressBar {
     let pb = ProgressBar::new_spinner();
     pb.set_style(

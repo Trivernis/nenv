@@ -1,14 +1,9 @@
-use std::{
-    fs::File,
-    io::{self, BufReader},
-    path::Path,
-};
+use std::{fs::File, io, path::Path};
 
 use miette::Diagnostic;
 use miette::Result;
 use thiserror::Error;
 
-use crate::utils::progress_spinner;
 type ExtractResult<T> = Result<T, ExtractError>;
 
 /// An error that can occur during extraction
@@ -34,10 +29,11 @@ pub fn extract_file(src: &Path, dst: &Path) -> ExtractResult<()> {
 
 #[cfg(not(target_os = "windows"))]
 fn extract_tar_gz(src: &Path, dst: &Path) -> ExtractResult<()> {
+    use crate::utils::progress_spinner;
     use libflate::gzip::Decoder;
     use tar::Archive;
 
-    let reader = BufReader::new(File::open(src)?);
+    let reader = io::BufReader::new(File::open(src)?);
     let decoder = Decoder::new(reader)?;
     let mut archive = Archive::new(decoder);
     let pb = progress_spinner();
