@@ -2,10 +2,9 @@ use std::{collections::HashSet, io, path::Path};
 
 use tokio::fs::{self, DirEntry};
 
-use crate::{consts::BIN_DIR, repository::node_path::NodePath};
+use crate::{consts::BIN_DIR, error::MapDirError, repository::node_path::NodePath};
 
-use super::error::{MapperError, MapperResult};
-
+use miette::{Context, IntoDiagnostic, Result};
 struct NodeApp {
     info: DirEntry,
     name: String,
@@ -25,11 +24,12 @@ impl NodeApp {
     }
 
     /// creates wrappers to map this application
-    pub async fn map_executable(&self) -> MapperResult<()> {
+    pub async fn map_executable(&self) -> Result<()> {
         let src_path = BIN_DIR.join(self.info.file_name());
         self.write_wrapper_script(&src_path)
             .await
-            .map_err(|err| MapperError::DirMapping { src: src_path, err })
+            .into_diagnostic()
+            .context("Creating executable wrapper script")
     }
 
     #[cfg(not(target_os = "windows"))]
@@ -55,7 +55,7 @@ impl NodeApp {
     }
 }
 
-pub async fn map_node_bin(node_path: NodePath) -> MapperResult<()> {
+pub async fn map_node_bin(node_path: NodePath) -> Result<()> {
     let mapped_app_names = get_applications(&*BIN_DIR)
         .await?
         .iter()
@@ -71,16 +71,19 @@ pub async fn map_node_bin(node_path: NodePath) -> MapperResult<()> {
     Ok(())
 }
 
-async fn get_applications(path: &Path) -> MapperResult<Vec<NodeApp>> {
+async fn get_applications(path: &Path) -> Result<Vec<NodeApp>> {
     let mut files = Vec::new();
-    let mut iter = fs::read_dir(path)
-        .await
-        .map_err(|err| MapperError::DirMapping {
-            src: path.to_owned(),
-            err,
-        })?;
+    let mut iter = fs::read_dir(path).await.map_err(|err| MapDirError {
+        dir: path.to_owned(),
+        caused_by: err,
+    })?;
 
-    while let Some(entry) = iter.next_entry().await? {
+    while let Some(entry) = iter
+        .next_entry()
+        .await
+        .into_diagnostic()
+        .context("Reading directory entries")?
+    {
         let entry_path = entry.path();
 
         if entry_path.is_file() && !exclude_path(&entry_path) {

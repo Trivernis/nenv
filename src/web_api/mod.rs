@@ -50,11 +50,11 @@ impl WebApi {
             .send()
             .await
             .map_err(ReqwestError::from)
-            .context("fetching versions")?
+            .context("Fetching versions")?
             .json()
             .await
             .map_err(ReqwestError::from)
-            .context("fetching versions")?;
+            .context("Parsing versions response")?;
 
         Ok(versions)
     }
@@ -76,11 +76,11 @@ impl WebApi {
             .send()
             .await
             .map_err(ReqwestError::from)
-            .context("downloading nodejs")?;
+            .context("Downloading nodejs")?;
 
         let total_size = res
             .content_length()
-            .ok_or_else(|| miette!("missing content_length header"))?;
+            .ok_or_else(|| miette!("Missing content_length header"))?;
 
         let pb = progress_bar(total_size);
         pb.set_message(format!("Downloading node v{version}"));
@@ -93,7 +93,7 @@ impl WebApi {
                 .write_all(&chunk)
                 .await
                 .into_diagnostic()
-                .context("writing download chunk to file")?;
+                .context("Writing download chunk to file")?;
             total_downloaded = min(chunk.len() as u64 + total_downloaded, total_size);
             pb.set_position(total_downloaded);
         }

@@ -8,13 +8,9 @@ use crate::{
     repository::{NodeVersion, Repository},
 };
 
-use self::{
-    error::MapperError, mapped_command::MappedCommand, mapped_dir::map_node_bin,
-    package_info::PackageInfo,
-};
+use self::{mapped_command::MappedCommand, mapped_dir::map_node_bin, package_info::PackageInfo};
 use miette::{IntoDiagnostic, Result};
 
-pub mod error;
 mod mapped_command;
 mod mapped_dir;
 mod package_info;
@@ -63,11 +59,8 @@ impl Mapper {
             .repo
             .get_version_path(&self.active_version)?
             .ok_or_else(|| VersionError::not_installed(&self.active_version))?;
-        let executable = node_path.bin().join(command);
-        let exit_status = MappedCommand::new(executable, args)
-            .run()
-            .await
-            .map_err(MapperError::from)?;
+        let executable = node_path.bin().join(&command);
+        let exit_status = MappedCommand::new(command, executable, args).run().await?;
         self.map_active_version().await?;
 
         Ok(exit_status)

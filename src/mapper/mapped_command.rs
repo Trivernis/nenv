@@ -4,56 +4,56 @@ use std::{
     process::{ExitStatus, Stdio},
 };
 
-use thiserror::Error;
-use tokio::{io, process::Command};
+use crate::error::CommandNotFoundError;
+use miette::{Context, IntoDiagnostic, Result};
+use tokio::process::Command;
 
 pub struct MappedCommand {
+    name: String,
     path: PathBuf,
     args: Vec<OsString>,
 }
 
-pub type CommandResult<T> = Result<T, CommandError>;
-
-#[derive(Error, Debug)]
-pub enum CommandError {
-    #[error(transparent)]
-    Io(#[from] io::Error),
-
-    #[error("The command {0:?} could not be found for this nodejs version")]
-    NotFound(PathBuf),
-}
-
 impl MappedCommand {
-    pub fn new(path: PathBuf, args: Vec<OsString>) -> Self {
-        Self { path, args }
+    pub fn new(name: String, path: PathBuf, args: Vec<OsString>) -> Self {
+        Self { name, path, args }
     }
 
     #[tracing::instrument(skip_all, level = "debug")]
-    pub async fn run(mut self) -> CommandResult<ExitStatus> {
+    pub async fn run(mut self) -> Result<ExitStatus> {
         self.adjust_path()?;
         let exit_status = Command::new(self.path)
             .args(self.args)
             .stdin(Stdio::inherit())
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit())
-            .spawn()?
+            .spawn()
+            .into_diagnostic()
+            .context("Running mapped command")?
             .wait()
-            .await?;
+            .await
+            .into_diagnostic()
+            .context("Waiting for command to exit")?;
 
         Ok(exit_status)
     }
 
     #[cfg(not(target_os = "windows"))]
-    fn adjust_path(&mut self) -> CommandResult<()> {
+    fn adjust_path(&mut self) -> Result<()> {
         if !self.path.exists() {
-            Err(CommandError::NotFound(self.path.to_owned()))
+            Err(CommandNotFoundError::new(
+                self.name.to_owned(),
+                self.args.to_owned(),
+                self.path.to_owned(),
+            )
+            .into())
         } else {
             Ok(())
         }
     }
 
     #[cfg(target_os = "windows")]
-    fn adjust_path(&mut self) -> CommandResult<()> {
+    fn adjust_path(&mut self) -> Result<()> {
         let extensions = ["exe", "bat", "cmd", "ps1"];
         for extension in &extensions {
             let joined_path = self.path.with_extension(extension);
@@ -63,6 +63,11 @@ impl MappedCommand {
                 return Ok(());
             }
         }
-        Err(CommandError::NotFound(self.path.to_owned()))
+        Err(CommandNotFoundError::new(
+            self.name.to_owned(),
+            self.args.to_owned(),
+            self.path.to_owned(),
+        )
+        .into())
     }
 }

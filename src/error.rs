@@ -1,18 +1,16 @@
+use std::{ffi::OsString, path::PathBuf};
+
 use miette::{Diagnostic, NamedSource, SourceSpan};
 
 use thiserror::Error;
 
-use crate::{mapper::error::MapperError, repository::extract::ExtractError};
+use crate::repository::extract::ExtractError;
 
 #[derive(Debug, Error, Diagnostic)]
 pub enum Error {
     #[diagnostic(code(nenv::extract))]
     #[error("The node archive could not be extracted")]
     Extract(#[from] ExtractError),
-
-    #[diagnostic(code(nenv::mapper))]
-    #[error("Mapping failed")]
-    Mapper(#[from] MapperError),
 
     #[diagnostic(code(nenv::version))]
     #[error("The passed version is invalid")]
@@ -45,20 +43,20 @@ impl VersionError {
     }
 
     pub fn unknown_version<S: ToString>(src: S) -> Self {
-        Self::new(src, "unknown version")
+        Self::new(src, "Unknown version.")
     }
 
     pub fn unfulfillable_version<S: ToString>(src: S) -> Self {
-        Self::new(src, "the version requirement cannot be fulfilled")
+        Self::new(src, "The version requirement cannot be fulfilled.")
     }
 
     pub fn not_installed<S: ToString>(src: S) -> Self {
-        Self::new(src, "the version is not installed")
+        Self::new(src, "The version is not installed.")
     }
 }
 
 #[derive(Debug, Error, Diagnostic)]
-#[error("failed to parse json")]
+#[error("Failed to parse the contents as JSON.")]
 #[diagnostic(code(nenv::json::deserialize))]
 pub struct ParseJsonError {
     #[source_code]
@@ -81,7 +79,7 @@ pub struct SerializeJsonError {
 
 #[derive(Debug, Error, Diagnostic)]
 #[diagnostic(code(nenv::toml::deserialize))]
-#[error("failed to parse toml value")]
+#[error("Failed to parse the toml file.")]
 pub struct ParseTomlError {
     #[source_code]
     src: NamedSource,
@@ -116,7 +114,7 @@ impl ParseTomlError {
 
 #[derive(Debug, Error, Diagnostic)]
 #[diagnostic(code(nenv::toml::serialize))]
-#[error("failed to serialize value to toml string")]
+#[error("Failed to serialize the value to toml string.")]
 pub struct SerializeTomlError {
     #[from]
     caused_by: toml::ser::Error,
@@ -126,3 +124,53 @@ pub struct SerializeTomlError {
 #[diagnostic(code(nenv::http))]
 #[error("http request failed")]
 pub struct ReqwestError(#[from] reqwest::Error);
+
+#[derive(Debug, Error, Diagnostic)]
+#[diagnostic(
+    code(nenv::exec::command),
+    help("Make sure you selected the correct node version and check if {path:?} exist.")
+)]
+#[error("The command `{command}` could not be found for this node version.")]
+pub struct CommandNotFoundError {
+    command: String,
+
+    #[source_code]
+    full_command: String,
+
+    path: PathBuf,
+
+    #[label("this command")]
+    pos: SourceSpan,
+}
+
+impl CommandNotFoundError {
+    pub fn new(command: String, args: Vec<OsString>, path: PathBuf) -> Self {
+        let pos = (0, command.len()).into();
+        let full_command = format!(
+            "{command} {}",
+            args.into_iter()
+                .map(|a| a.into_string().unwrap_or_default())
+                .collect::<Vec<_>>()
+                .join(" ")
+        );
+        Self {
+            command,
+            full_command,
+            path,
+            pos,
+        }
+    }
+}
+
+#[derive(Debug, Error, Diagnostic)]
+#[error("Failed to create mappings to directory {dir:?}.")]
+#[diagnostic(
+    code(nenv::map::command),
+    help("Check if this node version was installed correctly.")
+)]
+pub struct MapDirError {
+    pub dir: PathBuf,
+
+    #[source]
+    pub caused_by: std::io::Error,
+}
