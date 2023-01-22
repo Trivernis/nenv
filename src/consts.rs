@@ -62,7 +62,7 @@ map_os!(
 );
 
 #[cfg(not(target_os = "windows"))]
-pub const ARCHIVE_TYPE: &'static str = "tar.gz";
+pub const ARCHIVE_TYPE: &str = "tar.gz";
 
 #[cfg(target_os = "windows")]
 pub const ARCHIVE_TYPE: &'static str = "zip";

@@ -120,7 +120,7 @@ impl Repository {
 
     /// Returns the path for the given node version
     pub fn get_version_path(&self, version: &NodeVersion) -> Result<Option<NodePath>> {
-        let info = self.lookup_version(&version)?;
+        let info = self.lookup_version(version)?;
         let path = build_version_path(&info.version);
 
         Ok(if path.exists() {
@@ -158,11 +158,11 @@ impl Repository {
             NodeVersion::LatestLts => self.versions.latest_lts(),
             NodeVersion::Lts(lts) => self
                 .versions
-                .get_lts(&lts)
+                .get_lts(lts)
                 .ok_or_else(|| VersionError::unknown_version(lts.to_owned()))?,
             NodeVersion::Req(req) => self
                 .versions
-                .get_fulfilling(&req)
+                .get_fulfilling(req)
                 .ok_or_else(|| VersionError::unfulfillable_version(req.to_owned()))?,
         };
 
@@ -176,7 +176,7 @@ impl Repository {
 
     /// Installs a specified node version
     pub async fn install_version(&self, version_req: &NodeVersion) -> Result<()> {
-        let info = self.lookup_version(&version_req)?;
+        let info = self.lookup_version(version_req)?;
         let archive_path = self.download_version(&info.version).await?;
         self.extract_archive(info, &archive_path)?;
 

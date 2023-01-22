@@ -29,7 +29,10 @@ async fn main() -> Result<()> {
     let args: Args = Args::parse();
 
     match args.commmand {
-        args::Command::Version => Ok(print_version()),
+        args::Command::Version => {
+            print_version();
+            Ok(())
+        },
         args::Command::Install(v) => install_version(v.version).await,
         args::Command::Default(v) => set_default_version(v.version).await,
         args::Command::Exec(args) => {
@@ -56,18 +59,15 @@ pub async fn install_version(version: NodeVersion) -> Result<()> {
     }
     let repo = get_repository().await?;
 
-    if repo.is_installed(&version)? {
-        if !Confirm::new()
+    if repo.is_installed(&version)? && !Confirm::new()
             .with_prompt(format!(
                 "The version {} is already installed. Reinstall?",
                 version.to_string().bold()
             ))
             .default(false)
             .interact()
-            .unwrap()
-        {
-            return Ok(());
-        }
+            .unwrap() {
+        return Ok(());
     }
     repo.install_version(&version).await?;
     println!("Installed {}", version.to_string().bold());
@@ -102,7 +102,7 @@ pub async fn exec(command: String, args: Vec<OsString>) -> Result<i32> {
     let active_version = mapper.active_version();
 
     if !mapper.repository().is_installed(active_version)? {
-        mapper.repository().install_version(&active_version).await?;
+        mapper.repository().install_version(active_version).await?;
     }
     let exit_status = mapper.exec(command, args).await?;
 

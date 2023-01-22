@@ -106,7 +106,7 @@ impl ParseTomlError {
             .map(|p| SourceSpan::new(p.into(), 0.into()));
         Self {
             src: NamedSource::new(file_name, src),
-            pos: abs_pos.into(),
+            pos: abs_pos,
             caused_by,
         }
     }
