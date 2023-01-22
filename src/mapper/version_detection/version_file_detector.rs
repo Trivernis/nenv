@@ -19,7 +19,12 @@ impl VersionDetector for VersionFileDetector {
                 .await
                 .into_diagnostic()
                 .context("Reading version file.")?;
-            Ok(NodeVersion::from_str(&version_string).ok())
+            let version = version_string
+                .lines()
+                .into_iter()
+                .find_map(|l| NodeVersion::from_str(l).ok());
+
+            Ok(version)
         } else {
             Ok(None)
         }
