@@ -5,25 +5,22 @@ use std::{
 };
 
 use miette::Diagnostic;
+use miette::Result;
 use thiserror::Error;
 
 use crate::utils::progress_spinner;
 type ExtractResult<T> = Result<T, ExtractError>;
 
+/// An error that can occur during extraction
 #[derive(Error, Debug, Diagnostic)]
 pub enum ExtractError {
+    #[diagnostic(code(nenv::extract::io))]
     #[error("IO error when extracting: {0}")]
-    Io(
-        #[from]
-        #[source]
-        io::Error,
-    ),
+    Io(#[from] io::Error),
+
+    #[diagnostic(code(nenv::extract::zip))]
     #[error("Failed to extract zip: {0}")]
-    Zip(
-        #[from]
-        #[source]
-        zip::result::ZipError,
-    ),
+    Zip(#[from] zip::result::ZipError),
 }
 
 pub fn extract_file(src: &Path, dst: &Path) -> ExtractResult<()> {

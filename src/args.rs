@@ -1,7 +1,7 @@
 use std::ffi::OsString;
 
+use crate::repository::NodeVersion;
 use clap::{Parser, Subcommand};
-use nenv::repository::NodeVersion;
 
 #[derive(Clone, Debug, Parser)]
 #[clap(infer_subcommands = true)]

@@ -4,7 +4,7 @@ use tokio::fs;
 
 use crate::{
     consts::BIN_DIR,
-    error::{LibResult, VersionError},
+    error::VersionError,
     repository::{NodeVersion, Repository},
 };
 
@@ -12,6 +12,7 @@ use self::{
     error::MapperError, mapped_command::MappedCommand, mapped_dir::map_node_bin,
     package_info::PackageInfo,
 };
+use miette::{IntoDiagnostic, Result};
 
 pub mod error;
 mod mapped_command;
@@ -41,7 +42,7 @@ impl Mapper {
     }
 
     /// Sets the given version as the default one
-    pub async fn set_default_version(&mut self, version: &NodeVersion) -> LibResult<()> {
+    pub async fn set_default_version(&mut self, version: &NodeVersion) -> Result<()> {
         self.repo
             .config
             .set_default_version(version.clone())
@@ -57,11 +58,11 @@ impl Mapper {
     }
 
     /// Executes a mapped command with the given node environment
-    pub async fn exec(&self, command: String, args: Vec<OsString>) -> LibResult<ExitStatus> {
+    pub async fn exec(&self, command: String, args: Vec<OsString>) -> Result<ExitStatus> {
         let node_path = self
             .repo
             .get_version_path(&self.active_version)?
-            .expect("version not installed");
+            .ok_or_else(|| VersionError::not_installed(&self.active_version))?;
         let executable = node_path.bin().join(command);
         let exit_status = MappedCommand::new(executable, args)
             .run()
@@ -73,9 +74,9 @@ impl Mapper {
     }
 
     /// Recreates all environment mappings
-    pub async fn remap(&self) -> LibResult<()> {
-        fs::remove_dir_all(&*BIN_DIR).await?;
-        fs::create_dir_all(&*BIN_DIR).await?;
+    pub async fn remap(&self) -> Result<()> {
+        fs::remove_dir_all(&*BIN_DIR).await.into_diagnostic()?;
+        fs::create_dir_all(&*BIN_DIR).await.into_diagnostic()?;
         self.map_active_version().await?;
 
         Ok(())
@@ -98,11 +99,11 @@ impl Mapper {
     }
 
     /// creates wrapper scripts for the current version
-    async fn map_active_version(&self) -> LibResult<()> {
+    async fn map_active_version(&self) -> Result<()> {
         let dir = self
             .repo
             .get_version_path(&self.active_version)?
-            .ok_or_else(|| VersionError::NotInstalled(self.active_version.to_string()))?;
+            .ok_or_else(|| VersionError::not_installed(self.active_version.to_string()))?;
         map_node_bin(dir).await?;
 
         Ok(())

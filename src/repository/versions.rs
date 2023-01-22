@@ -4,7 +4,8 @@ use semver::{Version, VersionReq};
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 
-use crate::{consts::VERSION_FILE_PATH, error::LibResult, web_api::VersionInfo};
+use crate::{consts::VERSION_FILE_PATH, error::SerializeJsonError, web_api::VersionInfo};
+use miette::{IntoDiagnostic, Result};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Versions {
@@ -54,9 +55,11 @@ impl Versions {
         }
     }
 
-    pub(crate) async fn save(&self) -> LibResult<()> {
-        let json_string = serde_json::to_string(&self)?;
-        fs::write(&*VERSION_FILE_PATH, json_string).await?;
+    pub(crate) async fn save(&self) -> Result<()> {
+        let json_string = serde_json::to_string(&self).map_err(SerializeJsonError::from)?;
+        fs::write(&*VERSION_FILE_PATH, json_string)
+            .await
+            .into_diagnostic()?;
 
         Ok(())
     }

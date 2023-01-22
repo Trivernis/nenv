@@ -15,9 +15,11 @@ use crate::{
     consts::{
         ARCH, BIN_DIR, CACHE_DIR, CFG_DIR, DATA_DIR, NODE_ARCHIVE_SUFFIX, NODE_VERSIONS_DIR, OS,
     },
-    error::{LibResult, VersionError},
+    error::VersionError,
     web_api::{VersionInfo, WebApi},
 };
+
+use miette::{IntoDiagnostic, Result};
 
 use self::{config::Config, node_path::NodePath, versions::Versions};
 
@@ -87,7 +89,7 @@ pub struct Repository {
 
 impl Repository {
     /// Initializes a new repository with the given confi
-    pub async fn init(config: Config) -> LibResult<Self> {
+    pub async fn init(config: Config) -> Result<Self> {
         Self::create_folders().await?;
         let web_api = WebApi::new(&config.dist_base_url);
         let versions = load_versions(&web_api).await?;
@@ -99,7 +101,7 @@ impl Repository {
         })
     }
 
-    async fn create_folders() -> LibResult<()> {
+    async fn create_folders() -> Result<()> {
         let dirs = vec![
             &*CFG_DIR,
             &*DATA_DIR,
@@ -109,7 +111,7 @@ impl Repository {
         ];
         for dir in dirs {
             if !dir.exists() {
-                fs::create_dir_all(dir).await?;
+                fs::create_dir_all(dir).await.into_diagnostic()?;
             }
         }
 
@@ -117,7 +119,7 @@ impl Repository {
     }
 
     /// Returns the path for the given node version
-    pub fn get_version_path(&self, version: &NodeVersion) -> LibResult<Option<NodePath>> {
+    pub fn get_version_path(&self, version: &NodeVersion) -> Result<Option<NodePath>> {
         let info = self.lookup_version(&version)?;
         let path = build_version_path(&info.version);
 
@@ -129,11 +131,11 @@ impl Repository {
     }
 
     /// Returns a list of installed versions
-    pub async fn installed_versions(&self) -> LibResult<Vec<Version>> {
+    pub async fn installed_versions(&self) -> Result<Vec<Version>> {
         let mut versions = Vec::new();
-        let mut iter = fs::read_dir(&*NODE_VERSIONS_DIR).await?;
+        let mut iter = fs::read_dir(&*NODE_VERSIONS_DIR).await.into_diagnostic()?;
 
-        while let Some(entry) = iter.next_entry().await? {
+        while let Some(entry) = iter.next_entry().await.into_diagnostic()? {
             if let Ok(version) = Version::parse(entry.file_name().to_string_lossy().as_ref()) {
                 versions.push(version);
             };
@@ -143,7 +145,7 @@ impl Repository {
     }
 
     /// Returns if the given version is installed
-    pub fn is_installed(&self, version: &NodeVersion) -> LibResult<bool> {
+    pub fn is_installed(&self, version: &NodeVersion) -> Result<bool> {
         let info = self.lookup_version(version)?;
 
         Ok(build_version_path(&info.version).exists())
@@ -157,11 +159,11 @@ impl Repository {
             NodeVersion::Lts(lts) => self
                 .versions
                 .get_lts(&lts)
-                .ok_or_else(|| VersionError::UnkownVersion(lts.to_owned()))?,
+                .ok_or_else(|| VersionError::unknown_version(lts.to_owned()))?,
             NodeVersion::Req(req) => self
                 .versions
                 .get_fulfilling(&req)
-                .ok_or_else(|| VersionError::Unfulfillable(req.to_owned()))?,
+                .ok_or_else(|| VersionError::unfulfillable_version(req.to_owned()))?,
         };
 
         Ok(version)
@@ -173,7 +175,7 @@ impl Repository {
     }
 
     /// Installs a specified node version
-    pub async fn install_version(&self, version_req: &NodeVersion) -> LibResult<()> {
+    pub async fn install_version(&self, version_req: &NodeVersion) -> Result<()> {
         let info = self.lookup_version(&version_req)?;
         let archive_path = self.download_version(&info.version).await?;
         self.extract_archive(info, &archive_path)?;
@@ -181,13 +183,14 @@ impl Repository {
         Ok(())
     }
 
-    async fn download_version(&self, version: &Version) -> LibResult<PathBuf> {
+    async fn download_version(&self, version: &Version) -> Result<PathBuf> {
         let download_path = CACHE_DIR.join(format!("node-v{}{}", version, *NODE_ARCHIVE_SUFFIX));
 
         if download_path.exists() {
             return Ok(download_path);
         }
-        let mut download_writer = BufWriter::new(File::create(&download_path).await?);
+        let mut download_writer =
+            BufWriter::new(File::create(&download_path).await.into_diagnostic()?);
         self.web_api
             .download_version(version.to_string(), &mut download_writer)
             .await?;
@@ -195,7 +198,7 @@ impl Repository {
         Ok(download_path)
     }
 
-    fn extract_archive(&self, info: &VersionInfo, archive_path: &Path) -> LibResult<()> {
+    fn extract_archive(&self, info: &VersionInfo, archive_path: &Path) -> Result<()> {
         let dst_path = NODE_VERSIONS_DIR.join(info.version.to_string());
         extract::extract_file(archive_path, &dst_path)?;
 
@@ -204,7 +207,7 @@ impl Repository {
 }
 
 #[inline]
-async fn load_versions(web_api: &WebApi) -> Result<Versions, crate::error::Error> {
+async fn load_versions(web_api: &WebApi) -> Result<Versions> {
     let versions = if let Some(v) = Versions::load().await {
         v
     } else {

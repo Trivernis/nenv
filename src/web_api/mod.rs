@@ -5,16 +5,15 @@ use std::{
 
 use crate::{
     consts::{NODE_ARCHIVE_SUFFIX, NODE_DIST_URL},
+    error::ReqwestError,
     utils::progress_bar,
 };
 
-use self::error::{ApiError, ApiResult};
-
 use reqwest::Client;
 
-pub mod error;
 mod model;
 use futures_util::StreamExt;
+use miette::{miette, Context, IntoDiagnostic, Result};
 pub use model::*;
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 
@@ -44,14 +43,18 @@ impl WebApi {
 
     /// Returns the list of available node versions
     #[tracing::instrument(level = "trace")]
-    pub async fn get_versions(&self) -> ApiResult<Vec<VersionInfo>> {
+    pub async fn get_versions(&self) -> Result<Vec<VersionInfo>> {
         let versions = self
             .client
             .get(format!("{}/index.json", self.base_url))
             .send()
-            .await?
+            .await
+            .map_err(ReqwestError::from)
+            .context("fetching versions")?
             .json()
-            .await?;
+            .await
+            .map_err(ReqwestError::from)
+            .context("fetching versions")?;
 
         Ok(versions)
     }
@@ -63,7 +66,7 @@ impl WebApi {
         &self,
         version: S,
         writer: &mut W,
-    ) -> ApiResult<u64> {
+    ) -> Result<u64> {
         let res = self
             .client
             .get(format!(
@@ -71,23 +74,31 @@ impl WebApi {
                 self.base_url, *NODE_ARCHIVE_SUFFIX
             ))
             .send()
-            .await?;
+            .await
+            .map_err(ReqwestError::from)
+            .context("downloading nodejs")?;
+
         let total_size = res
             .content_length()
-            .ok_or_else(|| ApiError::other("Missing content length"))?;
+            .ok_or_else(|| miette!("missing content_length header"))?;
+
         let pb = progress_bar(total_size);
         pb.set_message(format!("Downloading node v{version}"));
         let mut stream = res.bytes_stream();
         let mut total_downloaded = 0;
 
         while let Some(item) = stream.next().await {
-            let chunk = item?;
-            writer.write_all(&chunk).await?;
+            let chunk = item.map_err(ReqwestError::from)?;
+            writer
+                .write_all(&chunk)
+                .await
+                .into_diagnostic()
+                .context("writing download chunk to file")?;
             total_downloaded = min(chunk.len() as u64 + total_downloaded, total_size);
             pb.set_position(total_downloaded);
         }
 
-        writer.flush().await?;
+        writer.flush().await.into_diagnostic()?;
         pb.finish_with_message(format!("Downloaded node v{version}."));
 
         Ok(total_downloaded)
