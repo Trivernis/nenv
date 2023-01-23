@@ -110,6 +110,7 @@ impl Nenv {
     pub async fn list_versions(&self) -> Result<()> {
         let versions = self.repo.installed_versions().await?;
         let active_version = self.repo.lookup_version(&self.active_version)?;
+        let active_version = active_version.version.into();
 
         println!("{}", "Installed versions:".bold());
 
@@ -125,7 +126,7 @@ impl Nenv {
                 .map(|l| format!(" ({})", l.to_owned().green()))
                 .unwrap_or_default();
 
-            if version == active_version.version {
+            if version == active_version {
                 println!(" {}{} [current]", version.to_string().blue().bold(), lts)
             } else {
                 println!(" {}{}", version.to_string().blue(), lts)

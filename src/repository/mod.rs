@@ -24,7 +24,7 @@ use miette::{IntoDiagnostic, Result};
 
 use self::{
     node_path::NodePath,
-    versions::{SimpleVersionInfo, Versions},
+    versions::{SimpleVersion, SimpleVersionInfo, Versions},
 };
 
 pub(crate) mod extract;
@@ -195,7 +195,7 @@ impl Repository {
     }
 
     #[tracing::instrument(level = "debug", skip(self))]
-    async fn download_version(&self, version: &Version) -> Result<PathBuf> {
+    async fn download_version(&self, version: &SimpleVersion) -> Result<PathBuf> {
         let download_path = CACHE_DIR.join(format!("node-v{}{}", version, *NODE_ARCHIVE_SUFFIX));
 
         if download_path.exists() {
@@ -211,7 +211,7 @@ impl Repository {
     }
 
     #[tracing::instrument(level = "debug", skip(self))]
-    fn extract_archive(&self, version: &Version, archive_path: &Path) -> Result<()> {
+    fn extract_archive(&self, version: &SimpleVersion, archive_path: &Path) -> Result<()> {
         let dst_path = NODE_VERSIONS_DIR.join(version.to_string());
         extract::extract_file(archive_path, &dst_path)?;
 
@@ -233,7 +233,7 @@ async fn load_versions(web_api: &WebApi) -> Result<Versions> {
     Ok(versions)
 }
 
-fn build_version_path(version: &Version) -> PathBuf {
+fn build_version_path(version: &SimpleVersion) -> PathBuf {
     NODE_VERSIONS_DIR
         .join(version.to_string())
         .join(format!("node-v{}-{}-{}", version, OS, ARCH))

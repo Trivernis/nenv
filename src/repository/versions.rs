@@ -12,6 +12,9 @@ use miette::{Context, IntoDiagnostic, Result};
 pub struct Versions {
     lts_versions: HashMap<String, u16>,
     versions: HashMap<SimpleVersion, SimpleVersionInfo>,
+    // as this field is not serialized
+    // it needs to be calculated after serialization
+    #[serde(skip)]
     sorted_versions: Vec<SimpleVersion>,
 }
 
@@ -51,14 +54,14 @@ impl Display for SimpleVersion {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct SimpleVersionInfo {
-    pub version: Version,
+    pub version: SimpleVersion,
     pub lts: Option<String>,
 }
 
 impl From<VersionInfo> for SimpleVersionInfo {
     fn from(value: VersionInfo) -> Self {
         Self {
-            version: value.version,
+            version: value.version.into(),
             lts: value.lts.lts(),
         }
     }
@@ -72,8 +75,14 @@ impl Versions {
         }
         let byte_contents = fs::read(&*VERSION_FILE_PATH).await.ok()?;
 
-        match bincode::deserialize(&byte_contents) {
-            Ok(versions) => Some(versions),
+        match bincode::deserialize::<Versions>(&byte_contents) {
+            Ok(mut versions) => {
+                // create the list of sorted versions
+                // this is faster when done directly rather than
+                // storing it
+                versions.create_sorted_versions();
+                Some(versions)
+            }
             Err(e) => {
                 tracing::error!("Failed to deserialize cache {e}");
                 fs::remove_file(&*VERSION_FILE_PATH).await.ok()?;
@@ -176,5 +185,12 @@ impl Versions {
 
         let version = fulfilling_versions.last()?;
         self.versions.get(&version).into()
+    }
+
+    /// Creates the list of sorted versions
+    /// It needs to be calculated once after creating the struct
+    fn create_sorted_versions(&mut self) {
+        self.sorted_versions = self.versions.keys().cloned().collect::<Vec<_>>();
+        self.sorted_versions.sort();
     }
 }
