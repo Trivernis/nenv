@@ -19,7 +19,7 @@ Now to initialize everything install any nodejs version with `nenv install <vers
 Afterwards add the `bin` directory to your `PATH` variable.
 
 On windows this should be `C:\Users\<yourusername>\AppData\Roaming\nenv\bin`.
-On linux this will should be `~/.local/share/nenv/bin`.
+On linux this will be `~/.local/share/nenv/bin`.
 
 ## Usage
 
