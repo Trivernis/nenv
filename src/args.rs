@@ -6,6 +6,10 @@ use clap::{Parser, Subcommand};
 #[derive(Clone, Debug, Parser)]
 #[clap(infer_subcommands = true)]
 pub struct Args {
+    /// Prints verbose logs
+    #[arg(long)]
+    pub verbose: bool,
+
     #[command(subcommand)]
     pub command: Command,
 }

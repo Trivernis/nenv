@@ -42,7 +42,7 @@ impl WebApi {
     }
 
     /// Returns the list of available node versions
-    #[tracing::instrument(level = "trace")]
+    #[tracing::instrument(level = "debug")]
     pub async fn get_versions(&self) -> Result<Vec<VersionInfo>> {
         let versions = self
             .client
@@ -61,7 +61,7 @@ impl WebApi {
 
     /// Downloads a specific node version
     /// and writes it to the given writer
-    #[tracing::instrument(level = "trace", skip(writer))]
+    #[tracing::instrument(level = "debug", skip(writer))]
     pub async fn download_version<W: AsyncWrite + Unpin, S: Display + Debug>(
         &self,
         version: S,

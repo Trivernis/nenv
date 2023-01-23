@@ -21,6 +21,7 @@ impl Mapper {
         Self { node_path }
     }
     /// Executes a mapped command with the given node environment
+    #[tracing::instrument(level = "debug", skip(self))]
     pub async fn exec(&self, command: String, args: Vec<OsString>) -> Result<ExitStatus> {
         let executable = self.node_path.bin().join(&command);
         let exit_status = MappedCommand::new(command, executable, args).run().await?;
@@ -30,6 +31,7 @@ impl Mapper {
     }
 
     /// Recreates all environment mappings
+    #[tracing::instrument(level = "debug", skip(self))]
     pub async fn remap(&self) -> Result<()> {
         fs::remove_dir_all(&*BIN_DIR).await.into_diagnostic()?;
         fs::create_dir_all(&*BIN_DIR).await.into_diagnostic()?;
@@ -38,6 +40,7 @@ impl Mapper {
         Ok(())
     }
 
+    #[tracing::instrument(level = "debug", skip(self))]
     pub async fn remap_additive(&self) -> Result<()> {
         map_node_bin(&self.node_path).await?;
 
