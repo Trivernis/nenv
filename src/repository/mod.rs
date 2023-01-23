@@ -4,6 +4,7 @@ use std::{
     str::FromStr,
 };
 
+use futures::future;
 use semver::{Version, VersionReq};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use tokio::{
@@ -111,9 +112,17 @@ impl Repository {
             &*BIN_DIR,
             &*NODE_VERSIONS_DIR,
         ];
-        for dir in dirs {
+        for result in future::join_all(dirs.into_iter().map(|dir| async move {
             if !dir.exists() {
                 fs::create_dir_all(dir).await.into_diagnostic()?;
+            }
+
+            Ok(())
+        }))
+        .await
+        {
+            if let Err(e) = result {
+                return Err(e);
             }
         }
 

@@ -9,8 +9,6 @@ use crate::{
     utils::progress_bar,
 };
 
-use reqwest::Client;
-
 mod model;
 use futures_util::StreamExt;
 use miette::{miette, Context, IntoDiagnostic, Result};
@@ -23,7 +21,6 @@ mod test;
 #[derive(Clone, Debug)]
 pub struct WebApi {
     base_url: String,
-    client: Client,
 }
 
 impl Default for WebApi {
@@ -37,17 +34,13 @@ impl WebApi {
     pub fn new<S: ToString>(base_url: S) -> Self {
         Self {
             base_url: base_url.to_string(),
-            client: Client::new(),
         }
     }
 
     /// Returns the list of available node versions
     #[tracing::instrument(level = "debug")]
     pub async fn get_versions(&self) -> Result<Vec<VersionInfo>> {
-        let versions = self
-            .client
-            .get(format!("{}/index.json", self.base_url))
-            .send()
+        let versions = reqwest::get(format!("{}/index.json", self.base_url))
             .await
             .map_err(ReqwestError::from)
             .context("Fetching versions")?
@@ -67,16 +60,13 @@ impl WebApi {
         version: S,
         writer: &mut W,
     ) -> Result<u64> {
-        let res = self
-            .client
-            .get(format!(
-                "{}/v{version}/node-v{version}{}",
-                self.base_url, *NODE_ARCHIVE_SUFFIX
-            ))
-            .send()
-            .await
-            .map_err(ReqwestError::from)
-            .context("Downloading nodejs")?;
+        let res = reqwest::get(format!(
+            "{}/v{version}/node-v{version}{}",
+            self.base_url, *NODE_ARCHIVE_SUFFIX
+        ))
+        .await
+        .map_err(ReqwestError::from)
+        .context("Downloading nodejs")?;
 
         let total_size = res
             .content_length()
