@@ -1,7 +1,14 @@
 [package]
 name = "nenv"
 version = "0.4.0"
+authors = ["trivernis <trivernis at proton dot me>"]
 edition = "2021"
+license = "GPL-3.0"
+description = "A low permission nodejs environment manager."
+readme = "README.md"
+repository = "https://github.com/Trivernis/nenv"
+keywords = ["nodejs", "tools"]
+categories = ["command-line-utilities", "development-tools"]
 
 
 [[bin]]

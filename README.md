@@ -1,6 +1,6 @@
 # nenv
 
-Node environment manager written in rust.
+A Node environment manager written in rust.
 
 ## Features
 
