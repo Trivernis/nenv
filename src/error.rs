@@ -70,11 +70,11 @@ pub struct ParseJsonError {
 }
 
 #[derive(Debug, Error, Diagnostic)]
-#[diagnostic(code(nenv::json::serialize))]
-#[error("failed to serialize value to json string")]
-pub struct SerializeJsonError {
+#[diagnostic(code(nenv::bincode::serialize))]
+#[error("failed to serialize value to bincode")]
+pub struct SerializeBincodeError {
     #[from]
-    caused_by: serde_json::Error,
+    caused_by: bincode::Error,
 }
 
 #[derive(Debug, Error, Diagnostic)]

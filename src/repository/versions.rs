@@ -1,17 +1,67 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Display};
 
 use semver::{Version, VersionReq};
 use serde::{Deserialize, Serialize};
+use std::fmt::Debug;
 use tokio::fs;
 
-use crate::{consts::VERSION_FILE_PATH, error::SerializeJsonError, web_api::VersionInfo};
-use miette::{IntoDiagnostic, Result};
+use crate::{consts::VERSION_FILE_PATH, error::SerializeBincodeError, web_api::VersionInfo};
+use miette::{Context, IntoDiagnostic, Result};
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Versions {
-    lts_versions: HashMap<String, VersionReq>,
-    versions: HashMap<Version, VersionInfo>,
-    sorted_versions: Vec<Version>,
+    lts_versions: HashMap<String, u16>,
+    versions: HashMap<SimpleVersion, SimpleVersionInfo>,
+    sorted_versions: Vec<SimpleVersion>,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Deserialize, Serialize, Hash)]
+pub struct SimpleVersion {
+    pub major: u16,
+    pub minor: u16,
+    pub patch: u32,
+}
+
+impl From<semver::Version> for SimpleVersion {
+    fn from(value: semver::Version) -> Self {
+        Self {
+            major: value.major as u16,
+            minor: value.minor as u16,
+            patch: value.patch as u32,
+        }
+    }
+}
+
+impl From<SimpleVersion> for semver::Version {
+    fn from(value: SimpleVersion) -> Self {
+        Self::new(value.major as u64, value.minor as u64, value.patch as u64)
+    }
+}
+
+impl Display for SimpleVersion {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let Self {
+            major,
+            minor,
+            patch,
+        } = self;
+        write!(f, "{major}.{minor}.{patch}")
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct SimpleVersionInfo {
+    pub version: Version,
+    pub lts: Option<String>,
+}
+
+impl From<VersionInfo> for SimpleVersionInfo {
+    fn from(value: VersionInfo) -> Self {
+        Self {
+            version: value.version,
+            lts: value.lts.lts(),
+        }
+    }
 }
 
 impl Versions {
@@ -20,32 +70,34 @@ impl Versions {
         if !VERSION_FILE_PATH.exists() {
             return None;
         }
-        let versions_string = fs::read_to_string(&*VERSION_FILE_PATH).await.ok()?;
-        let versions = serde_json::from_str(&versions_string).ok()?;
+        let byte_contents = fs::read(&*VERSION_FILE_PATH).await.ok()?;
 
-        Some(versions)
+        match bincode::deserialize(&byte_contents) {
+            Ok(versions) => Some(versions),
+            Err(e) => {
+                tracing::error!("Failed to deserialize cache {e}");
+                fs::remove_file(&*VERSION_FILE_PATH).await.ok()?;
+                None
+            }
+        }
     }
 
     /// creates a new instance to access version information
+    #[tracing::instrument(level = "debug", skip_all)]
     pub fn new(all_versions: Vec<VersionInfo>) -> Self {
         let lts_versions = all_versions
             .iter()
-            .filter_map(|v| {
-                Some((
-                    v.lts.as_ref()?.to_lowercase(),
-                    VersionReq::parse(&format!("{}", v.version.major)).ok()?,
-                ))
-            })
+            .filter_map(|v| Some((v.lts.lts_ref()?.to_lowercase(), v.version.major as u16)))
             .collect::<HashMap<_, _>>();
         let mut sorted_versions = all_versions
             .iter()
-            .map(|v| v.version.to_owned())
+            .map(|v| v.version.to_owned().into())
             .collect::<Vec<_>>();
         sorted_versions.sort();
 
         let versions = all_versions
             .into_iter()
-            .map(|v| (v.version.to_owned(), v))
+            .map(|v| (v.version.to_owned().into(), v.into()))
             .collect::<HashMap<_, _>>();
 
         Self {
@@ -55,52 +107,74 @@ impl Versions {
         }
     }
 
+    #[tracing::instrument(level = "debug", skip_all)]
     pub(crate) async fn save(&self) -> Result<()> {
-        let json_string = serde_json::to_string(&self).map_err(SerializeJsonError::from)?;
-        fs::write(&*VERSION_FILE_PATH, json_string)
+        let byte_content = bincode::serialize(self).map_err(SerializeBincodeError::from)?;
+        fs::write(&*VERSION_FILE_PATH, byte_content)
             .await
-            .into_diagnostic()?;
+            .into_diagnostic()
+            .context("Caching available node version.")?;
 
         Ok(())
     }
 
     /// Returns the latest known node version
-    pub fn latest(&self) -> &VersionInfo {
+    #[tracing::instrument(level = "debug", skip_all)]
+    pub fn latest(&self) -> &SimpleVersionInfo {
         self.versions
             .get(self.sorted_versions.last().expect("No known node versions"))
             .unwrap()
     }
 
     /// Returns the latest node lts version
-    pub fn latest_lts(&self) -> &VersionInfo {
+    #[tracing::instrument(level = "debug", skip_all)]
+    pub fn latest_lts(&self) -> &SimpleVersionInfo {
         let mut versions = self
             .lts_versions
             .values()
-            .filter_map(|req| self.get_fulfilling(req))
+            .filter_map(|req| self.get_latest_for_major(*req))
             .collect::<Vec<_>>();
         versions.sort_by_key(|v| &v.version);
         versions.last().expect("No known lts node versions")
     }
 
     /// Returns a lts version by name
-    pub fn get_lts<S: AsRef<str>>(&self, lts_name: S) -> Option<&VersionInfo> {
+    #[tracing::instrument(level = "debug", skip(self))]
+    pub fn get_lts<S: AsRef<str> + Debug>(&self, lts_name: S) -> Option<&SimpleVersionInfo> {
         let lts_version = self.lts_versions.get(lts_name.as_ref())?;
-        self.get_fulfilling(lts_version)
+        self.get_latest_for_major(*lts_version)
     }
 
     /// Returns any version that fulfills the given requirement
-    pub fn get_fulfilling(&self, req: &VersionReq) -> Option<&VersionInfo> {
+    #[tracing::instrument(level = "debug", skip(self))]
+    pub fn get_fulfilling(&self, req: &VersionReq) -> Option<&SimpleVersionInfo> {
         let fulfilling_versions = self
             .sorted_versions
             .iter()
+            .map(|v| (*v).into())
             .filter(|v| req.matches(v))
             .collect::<Vec<_>>();
 
-        self.versions.get(fulfilling_versions.last()?)
+        let version = fulfilling_versions.last()?.clone().into();
+        self.versions.get(&version).into()
     }
 
     /// Returns the info for the given version
-    pub fn get(&self, version: &Version) -> Option<&VersionInfo> {
-        self.versions.get(version)
+    #[tracing::instrument(level = "debug", skip(self))]
+    pub fn get(&self, version: &Version) -> Option<&SimpleVersionInfo> {
+        self.versions.get(&version.clone().into())
+    }
+
+    /// Returns any version that fulfills the given requirement
+    #[tracing::instrument(level = "debug", skip(self))]
+    fn get_latest_for_major(&self, major: u16) -> Option<&SimpleVersionInfo> {
+        let fulfilling_versions = self
+            .sorted_versions
+            .iter()
+            .filter(|v| v.major == major)
+            .collect::<Vec<_>>();
+
+        let version = fulfilling_versions.last()?;
+        self.versions.get(&version).into()
     }
 }

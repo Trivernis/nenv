@@ -20,6 +20,7 @@ pub struct Nenv {
 }
 
 impl Nenv {
+    #[tracing::instrument(level = "debug")]
     pub async fn init() -> Result<Self> {
         let config = ConfigAccess::load().await?;
         let repo = Repository::init(config.clone()).await?;
@@ -35,6 +36,7 @@ impl Nenv {
 
     /// Installs the given node version.
     /// Prompts if that version already exists
+    #[tracing::instrument(skip(self))]
     pub async fn install(&mut self, version: NodeVersion) -> Result<()> {
         Self::clear_version_cache().await?;
 
@@ -60,6 +62,7 @@ impl Nenv {
     }
 
     /// Sets the system-wide default version
+    #[tracing::instrument(skip(self))]
     pub async fn set_system_default(&mut self, version: NodeVersion) -> Result<()> {
         self.active_version = version.to_owned();
 
@@ -85,6 +88,7 @@ impl Nenv {
     }
 
     /// Executes a given node executable for the currently active version
+    #[tracing::instrument(skip(self))]
     pub async fn exec(&self, command: String, args: Vec<OsString>) -> Result<i32> {
         if !self.repo.is_installed(&self.active_version)? {
             self.repo.install_version(&self.active_version).await?;
@@ -94,18 +98,15 @@ impl Nenv {
         Ok(exit_status.code().unwrap_or(0))
     }
 
-    /// Persits all changes made that aren't written to the disk yet
-    pub async fn persist(&self) -> Result<()> {
-        self.config.save().await
-    }
-
     /// Clears the version cache and remaps all executables
+    #[tracing::instrument(skip(self))]
     pub async fn refresh(&self) -> Result<()> {
         Self::clear_version_cache().await?;
         self.get_mapper()?.remap().await
     }
 
     /// Lists the currently installed versions
+    #[tracing::instrument(skip(self))]
     pub async fn list_versions(&self) -> Result<()> {
         let versions = self.repo.installed_versions().await?;
         let active_version = self.repo.lookup_version(&self.active_version)?;
@@ -134,6 +135,13 @@ impl Nenv {
         Ok(())
     }
 
+    /// Persits all changes made that aren't written to the disk yet
+    #[tracing::instrument(level = "debug", skip(self))]
+    pub async fn persist(&self) -> Result<()> {
+        self.config.save().await
+    }
+
+    #[tracing::instrument(level = "debug")]
     async fn get_active_version() -> Option<NodeVersion> {
         version_detection::ParallelDetector::detect_version()
             .await
@@ -141,6 +149,7 @@ impl Nenv {
             .and_then(|v| v)
     }
 
+    #[tracing::instrument(level = "debug")]
     async fn clear_version_cache() -> Result<()> {
         if VERSION_FILE_PATH.exists() {
             fs::remove_file(&*VERSION_FILE_PATH)
@@ -151,6 +160,7 @@ impl Nenv {
         Ok(())
     }
 
+    #[tracing::instrument(level = "debug", skip(self))]
     fn get_mapper(&self) -> Result<Mapper> {
         let node_path = self
             .repo

@@ -12,6 +12,8 @@ pub mod repository;
 mod utils;
 mod web_api;
 use miette::Result;
+use tracing::metadata::LevelFilter;
+use tracing_subscriber::fmt::format::FmtSpan;
 use xkcd_unreachable::xkcd_unreachable;
 
 mod args;
@@ -23,6 +25,10 @@ mod version_detection;
 async fn main() -> Result<()> {
     miette::set_panic_hook();
     let args: Args = Args::parse();
+
+    if args.verbose {
+        init_tracing();
+    }
 
     if let args::Command::Version = &args.command {
         print_version();
@@ -55,4 +61,13 @@ fn print_version() {
 
 async fn get_nenv() -> Result<Nenv> {
     Nenv::init().await
+}
+
+fn init_tracing() {
+    tracing_subscriber::fmt::SubscriberBuilder::default()
+        .with_max_level(LevelFilter::DEBUG)
+        .with_writer(std::io::stderr)
+        .with_span_events(FmtSpan::NEW | FmtSpan::CLOSE)
+        .compact()
+        .init();
 }

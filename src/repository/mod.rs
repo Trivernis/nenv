@@ -17,12 +17,15 @@ use crate::{
         ARCH, BIN_DIR, CACHE_DIR, CFG_DIR, DATA_DIR, NODE_ARCHIVE_SUFFIX, NODE_VERSIONS_DIR, OS,
     },
     error::VersionError,
-    web_api::{VersionInfo, WebApi},
+    web_api::WebApi,
 };
 
 use miette::{IntoDiagnostic, Result};
 
-use self::{node_path::NodePath, versions::Versions};
+use self::{
+    node_path::NodePath,
+    versions::{SimpleVersionInfo, Versions},
+};
 
 pub(crate) mod extract;
 pub(crate) mod node_path;
@@ -90,6 +93,7 @@ pub struct Repository {
 
 impl Repository {
     /// Initializes a new repository with the given confi
+    #[tracing::instrument(level = "debug", skip_all)]
     pub async fn init(config: ConfigAccess) -> Result<Self> {
         Self::create_folders().await?;
         let web_api = WebApi::new(&config.get().await.download.dist_base_url);
@@ -98,6 +102,7 @@ impl Repository {
         Ok(Self { web_api, versions })
     }
 
+    #[tracing::instrument(level = "debug")]
     async fn create_folders() -> Result<()> {
         let dirs = vec![
             &*CFG_DIR,
@@ -116,6 +121,7 @@ impl Repository {
     }
 
     /// Returns the path for the given node version
+    #[tracing::instrument(level = "debug", skip(self))]
     pub fn get_version_path(&self, version: &NodeVersion) -> Result<Option<NodePath>> {
         let info = self.lookup_version(version)?;
         let path = build_version_path(&info.version);
@@ -128,6 +134,7 @@ impl Repository {
     }
 
     /// Returns a list of installed versions
+    #[tracing::instrument(level = "debug", skip(self))]
     pub async fn installed_versions(&self) -> Result<Vec<Version>> {
         let mut versions = Vec::new();
         let mut iter = fs::read_dir(&*NODE_VERSIONS_DIR).await.into_diagnostic()?;
@@ -142,6 +149,7 @@ impl Repository {
     }
 
     /// Returns if the given version is installed
+    #[tracing::instrument(level = "debug", skip(self))]
     pub fn is_installed(&self, version: &NodeVersion) -> Result<bool> {
         let info = self.lookup_version(version)?;
 
@@ -149,7 +157,11 @@ impl Repository {
     }
 
     /// Performs a lookup for the given node version
-    pub fn lookup_version(&self, version_req: &NodeVersion) -> Result<&VersionInfo, VersionError> {
+    #[tracing::instrument(level = "debug", skip(self))]
+    pub fn lookup_version(
+        &self,
+        version_req: &NodeVersion,
+    ) -> Result<&SimpleVersionInfo, VersionError> {
         let version = match version_req {
             NodeVersion::Latest => self.versions.latest(),
             NodeVersion::LatestLts => self.versions.latest_lts(),
@@ -167,19 +179,22 @@ impl Repository {
     }
 
     /// Returns the reference to all known versions
+    #[tracing::instrument(level = "debug", skip(self))]
     pub fn all_versions(&self) -> &Versions {
         &self.versions
     }
 
     /// Installs a specified node version
+    #[tracing::instrument(level = "debug", skip(self))]
     pub async fn install_version(&self, version_req: &NodeVersion) -> Result<()> {
         let info = self.lookup_version(version_req)?;
         let archive_path = self.download_version(&info.version).await?;
-        self.extract_archive(info, &archive_path)?;
+        self.extract_archive(&info.version, &archive_path)?;
 
         Ok(())
     }
 
+    #[tracing::instrument(level = "debug", skip(self))]
     async fn download_version(&self, version: &Version) -> Result<PathBuf> {
         let download_path = CACHE_DIR.join(format!("node-v{}{}", version, *NODE_ARCHIVE_SUFFIX));
 
@@ -195,8 +210,9 @@ impl Repository {
         Ok(download_path)
     }
 
-    fn extract_archive(&self, info: &VersionInfo, archive_path: &Path) -> Result<()> {
-        let dst_path = NODE_VERSIONS_DIR.join(info.version.to_string());
+    #[tracing::instrument(level = "debug", skip(self))]
+    fn extract_archive(&self, version: &Version, archive_path: &Path) -> Result<()> {
+        let dst_path = NODE_VERSIONS_DIR.join(version.to_string());
         extract::extract_file(archive_path, &dst_path)?;
 
         Ok(())
@@ -204,6 +220,7 @@ impl Repository {
 }
 
 #[inline]
+#[tracing::instrument(level = "debug", skip_all)]
 async fn load_versions(web_api: &WebApi) -> Result<Versions> {
     let versions = if let Some(v) = Versions::load().await {
         v
