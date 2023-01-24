@@ -1,72 +1,27 @@
-use std::{collections::HashMap, fmt::Display};
+use std::collections::HashMap;
 
 use semver::{Version, VersionReq};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use tokio::fs;
 
-use crate::{consts::VERSION_FILE_PATH, error::SerializeBincodeError};
+use crate::{
+    consts::VERSION_FILE_PATH,
+    error::SerializeBincodeError,
+    versioning::{SimpleVersion, VersionMetadata},
+};
 use miette::{Context, IntoDiagnostic, Result};
 
-use super::downloader::VersionInfo;
+use super::VersionInfo;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Versions {
     lts_versions: HashMap<String, u16>,
-    versions: HashMap<SimpleVersion, SimpleVersionInfo>,
+    versions: HashMap<SimpleVersion, VersionMetadata>,
     // as this field is not serialized
     // it needs to be calculated after serialization
     #[serde(skip)]
     sorted_versions: Vec<SimpleVersion>,
-}
-
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Deserialize, Serialize, Hash)]
-pub struct SimpleVersion {
-    pub major: u16,
-    pub minor: u16,
-    pub patch: u32,
-}
-
-impl From<semver::Version> for SimpleVersion {
-    fn from(value: semver::Version) -> Self {
-        Self {
-            major: value.major as u16,
-            minor: value.minor as u16,
-            patch: value.patch as u32,
-        }
-    }
-}
-
-impl From<SimpleVersion> for semver::Version {
-    fn from(value: SimpleVersion) -> Self {
-        Self::new(value.major as u64, value.minor as u64, value.patch as u64)
-    }
-}
-
-impl Display for SimpleVersion {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let Self {
-            major,
-            minor,
-            patch,
-        } = self;
-        write!(f, "{major}.{minor}.{patch}")
-    }
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct SimpleVersionInfo {
-    pub version: SimpleVersion,
-    pub lts: Option<String>,
-}
-
-impl From<VersionInfo> for SimpleVersionInfo {
-    fn from(value: VersionInfo) -> Self {
-        Self {
-            version: value.version.into(),
-            lts: value.lts.lts(),
-        }
-    }
 }
 
 impl Versions {
@@ -131,7 +86,7 @@ impl Versions {
 
     /// Returns the latest known node version
     #[tracing::instrument(level = "debug", skip_all)]
-    pub fn latest(&self) -> &SimpleVersionInfo {
+    pub fn latest(&self) -> &VersionMetadata {
         self.versions
             .get(self.sorted_versions.last().expect("No known node versions"))
             .unwrap()
@@ -139,7 +94,7 @@ impl Versions {
 
     /// Returns the latest node lts version
     #[tracing::instrument(level = "debug", skip_all)]
-    pub fn latest_lts(&self) -> &SimpleVersionInfo {
+    pub fn latest_lts(&self) -> &VersionMetadata {
         let mut versions = self
             .lts_versions
             .values()
@@ -151,14 +106,14 @@ impl Versions {
 
     /// Returns a lts version by name
     #[tracing::instrument(level = "debug", skip(self))]
-    pub fn get_lts<S: AsRef<str> + Debug>(&self, lts_name: S) -> Option<&SimpleVersionInfo> {
+    pub fn get_lts<S: AsRef<str> + Debug>(&self, lts_name: S) -> Option<&VersionMetadata> {
         let lts_version = self.lts_versions.get(lts_name.as_ref())?;
         self.get_latest_for_major(*lts_version)
     }
 
     /// Returns any version that fulfills the given requirement
     #[tracing::instrument(level = "debug", skip(self))]
-    pub fn get_fulfilling(&self, req: &VersionReq) -> Option<&SimpleVersionInfo> {
+    pub fn get_fulfilling(&self, req: &VersionReq) -> Option<&VersionMetadata> {
         let fulfilling_versions = self
             .sorted_versions
             .iter()
@@ -172,13 +127,13 @@ impl Versions {
 
     /// Returns the info for the given version
     #[tracing::instrument(level = "debug", skip(self))]
-    pub fn get(&self, version: &Version) -> Option<&SimpleVersionInfo> {
+    pub fn get(&self, version: &Version) -> Option<&VersionMetadata> {
         self.versions.get(&version.clone().into())
     }
 
     /// Returns any version that fulfills the given requirement
     #[tracing::instrument(level = "debug", skip(self))]
-    fn get_latest_for_major(&self, major: u16) -> Option<&SimpleVersionInfo> {
+    fn get_latest_for_major(&self, major: u16) -> Option<&VersionMetadata> {
         let fulfilling_versions = self
             .sorted_versions
             .iter()

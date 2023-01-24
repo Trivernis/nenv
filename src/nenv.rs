@@ -41,7 +41,7 @@ impl Nenv {
     pub async fn install(&mut self, version: NodeVersion) -> Result<()> {
         Self::clear_version_cache().await?;
 
-        if self.repo.is_installed(&version)?
+        if self.repo.is_installed(&version).await?
             && !prompt(
                 false,
                 format!(
@@ -55,7 +55,7 @@ impl Nenv {
         } else {
             self.repo.install_version(&version).await?;
             self.active_version = version.to_owned();
-            self.get_mapper()?.remap_additive().await?;
+            self.get_mapper().await?.remap_additive().await?;
 
             println!("Installed {}", version.to_string().bold());
             Ok(())
@@ -67,20 +67,20 @@ impl Nenv {
     pub async fn set_system_default(&mut self, version: NodeVersion) -> Result<()> {
         self.active_version = version.to_owned();
 
-        if !self.repo.is_installed(&version)? {
+        if !self.repo.is_installed(&version).await? {
             if prompt(
                 false,
                 format!("The version {version} is not installed. Do you want to install it?"),
             ) {
                 self.repo.install_version(&version).await?;
                 self.config.get_mut().await.node.default_version = version.to_owned();
-                self.get_mapper()?.remap_additive().await?;
+                self.get_mapper().await?.remap_additive().await?;
                 println!("Now using {}", version.to_string().bold());
             }
 
             Ok(())
         } else {
-            self.get_mapper()?.remap_additive().await?;
+            self.get_mapper().await?.remap_additive().await?;
             self.config.get_mut().await.node.default_version = version.to_owned();
             println!("Now using {}", version.to_string().bold());
 
@@ -90,27 +90,27 @@ impl Nenv {
 
     /// Executes a given node executable for the currently active version
     #[tracing::instrument(skip(self))]
-    pub async fn exec(&self, command: String, args: Vec<OsString>) -> Result<i32> {
-        if !self.repo.is_installed(&self.active_version)? {
+    pub async fn exec(&mut self, command: String, args: Vec<OsString>) -> Result<i32> {
+        if !self.repo.is_installed(&self.active_version).await? {
             self.repo.install_version(&self.active_version).await?;
         }
-        let exit_status = self.get_mapper()?.exec(command, args).await?;
+        let exit_status = self.get_mapper().await?.exec(command, args).await?;
 
         Ok(exit_status.code().unwrap_or(0))
     }
 
     /// Clears the version cache and remaps all executables
     #[tracing::instrument(skip(self))]
-    pub async fn refresh(&self) -> Result<()> {
+    pub async fn refresh(&mut self) -> Result<()> {
         Self::clear_version_cache().await?;
-        self.get_mapper()?.remap().await
+        self.get_mapper().await?.remap().await
     }
 
     /// Lists the currently installed versions
     #[tracing::instrument(skip(self))]
-    pub async fn list_versions(&self) -> Result<()> {
+    pub async fn list_versions(&mut self) -> Result<()> {
         let versions = self.repo.installed_versions().await?;
-        let active_version = self.repo.lookup_version(&self.active_version)?;
+        let active_version = self.repo.lookup_version(&self.active_version).await?;
         let active_version = active_version.version.into();
 
         println!("{}", "Installed versions:".bold());
@@ -119,6 +119,7 @@ impl Nenv {
             let info = self
                 .repo
                 .all_versions()
+                .await?
                 .get(&version)
                 .ok_or_else(|| VersionError::unknown_version(version.to_string()))?;
             let lts = info
@@ -138,7 +139,7 @@ impl Nenv {
     }
 
     /// Initializes nenv and prompts for a default version.
-    pub async fn init_nenv(&self) -> Result<()> {
+    pub async fn init_nenv(&mut self) -> Result<()> {
         let items = vec!["latest", "lts", "custom"];
         let selection = Select::with_theme(&ColorfulTheme::default())
             .with_prompt("Select a default node version")
@@ -196,10 +197,11 @@ impl Nenv {
     }
 
     #[tracing::instrument(level = "debug", skip(self))]
-    fn get_mapper(&self) -> Result<Mapper> {
+    async fn get_mapper(&mut self) -> Result<Mapper> {
         let node_path = self
             .repo
-            .get_version_path(&self.active_version)?
+            .get_version_path(&self.active_version)
+            .await?
             .ok_or_else(|| VersionError::not_installed(self.active_version.to_owned()))?;
         Ok(Mapper::new(node_path))
     }

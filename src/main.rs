@@ -19,6 +19,7 @@ mod args;
 mod config;
 mod nenv;
 mod version_detection;
+mod versioning;
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<()> {

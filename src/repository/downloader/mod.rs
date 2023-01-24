@@ -10,9 +10,11 @@ use crate::{
     consts::{CACHE_DIR, NODE_ARCHIVE_SUFFIX, NODE_VERSIONS_DIR},
     error::ReqwestError,
     utils::progress_bar,
+    versioning::SimpleVersion,
 };
 
-use super::versions::SimpleVersion;
+use self::versions::Versions;
+
 use futures::StreamExt;
 use miette::{miette, Context, IntoDiagnostic, Result};
 use tokio::{
@@ -21,29 +23,49 @@ use tokio::{
 };
 mod extract;
 mod version_info;
+pub mod versions;
 pub use version_info::VersionInfo;
 
 #[derive(Clone)]
 pub struct NodeDownloader {
     config: ConfigAccess,
+    versions: Option<Versions>,
 }
 
 impl NodeDownloader {
     pub fn new(config: ConfigAccess) -> Self {
-        Self { config }
+        Self {
+            config,
+            versions: None,
+        }
     }
 
     /// Returns the list of available node versions
     #[tracing::instrument(level = "debug", skip(self))]
-    pub async fn get_versions(&self) -> Result<Vec<VersionInfo>> {
-        let versions = reqwest::get(format!("{}/index.json", self.base_url().await))
-            .await
-            .map_err(ReqwestError::from)
-            .context("Fetching versions")?
-            .json()
-            .await
-            .map_err(ReqwestError::from)
-            .context("Parsing versions response")?;
+    pub async fn versions(&mut self) -> Result<&Versions> {
+        if self.versions.is_none() {
+            self.versions = Some(self.load_versions().await?);
+        }
+
+        Ok(self.versions.as_ref().unwrap())
+    }
+
+    async fn load_versions(&self) -> Result<Versions> {
+        let versions = if let Some(v) = Versions::load().await {
+            v
+        } else {
+            let versions = reqwest::get(format!("{}/index.json", self.base_url().await))
+                .await
+                .map_err(ReqwestError::from)
+                .context("Fetching versions")?
+                .json()
+                .await
+                .map_err(ReqwestError::from)
+                .context("Parsing versions response")?;
+            let v = Versions::new(versions);
+            v.save().await?;
+            v
+        };
 
         Ok(versions)
     }

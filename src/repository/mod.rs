@@ -10,19 +10,19 @@ use crate::{
     config::ConfigAccess,
     consts::{ARCH, BIN_DIR, CACHE_DIR, CFG_DIR, DATA_DIR, NODE_VERSIONS_DIR, OS},
     error::VersionError,
+    versioning::{SimpleVersion, VersionMetadata},
 };
 
 use miette::{IntoDiagnostic, Result};
 
 use self::{
-    downloader::NodeDownloader,
+    downloader::{versions::Versions, NodeDownloader},
     node_path::NodePath,
-    versions::{SimpleVersion, SimpleVersionInfo, Versions},
 };
 
 pub mod downloader;
+mod local_versions;
 pub(crate) mod node_path;
-pub mod versions;
 
 #[derive(Clone, Debug)]
 pub enum NodeVersion {
@@ -90,7 +90,6 @@ impl fmt::Display for NodeVersion {
 }
 
 pub struct Repository {
-    versions: Versions,
     downloader: NodeDownloader,
 }
 
@@ -100,12 +99,8 @@ impl Repository {
     pub async fn init(config: ConfigAccess) -> Result<Self> {
         Self::create_folders().await?;
         let downloader = NodeDownloader::new(config.clone());
-        let versions = load_versions(&downloader).await?;
 
-        Ok(Self {
-            downloader,
-            versions,
-        })
+        Ok(Self { downloader })
     }
 
     #[tracing::instrument(level = "debug")]
@@ -137,8 +132,8 @@ impl Repository {
 
     /// Returns the path for the given node version
     #[tracing::instrument(level = "debug", skip(self))]
-    pub fn get_version_path(&self, version: &NodeVersion) -> Result<Option<NodePath>> {
-        let info = self.lookup_version(version)?;
+    pub async fn get_version_path(&mut self, version: &NodeVersion) -> Result<Option<NodePath>> {
+        let info = self.lookup_version(version).await?;
         let path = build_version_path(&info.version);
 
         Ok(if path.exists() {
@@ -165,16 +160,16 @@ impl Repository {
 
     /// Returns if the given version is installed
     #[tracing::instrument(level = "debug", skip(self))]
-    pub fn is_installed(&self, version: &NodeVersion) -> Result<bool> {
-        let info = self.lookup_version(version)?;
+    pub async fn is_installed(&mut self, version: &NodeVersion) -> Result<bool> {
+        let info = self.lookup_version(version).await?;
 
         Ok(build_version_path(&info.version).exists())
     }
 
     /// Installs the given node version
     #[tracing::instrument(level = "debug", skip(self))]
-    pub async fn install_version(&self, version: &NodeVersion) -> Result<()> {
-        let info = self.lookup_version(version)?;
+    pub async fn install_version(&mut self, version: &NodeVersion) -> Result<()> {
+        let info = self.lookup_version(version).await?.to_owned();
         self.downloader.download(&info.version).await?;
 
         Ok(())
@@ -182,19 +177,16 @@ impl Repository {
 
     /// Performs a lookup for the given node version
     #[tracing::instrument(level = "debug", skip(self))]
-    pub fn lookup_version(
-        &self,
-        version_req: &NodeVersion,
-    ) -> Result<&SimpleVersionInfo, VersionError> {
+    pub async fn lookup_version(&mut self, version_req: &NodeVersion) -> Result<&VersionMetadata> {
+        let versions = self.downloader.versions().await?;
+
         let version = match version_req {
-            NodeVersion::Latest => self.versions.latest(),
-            NodeVersion::LatestLts => self.versions.latest_lts(),
-            NodeVersion::Lts(lts) => self
-                .versions
+            NodeVersion::Latest => versions.latest(),
+            NodeVersion::LatestLts => versions.latest_lts(),
+            NodeVersion::Lts(lts) => versions
                 .get_lts(lts)
                 .ok_or_else(|| VersionError::unknown_version(lts.to_owned()))?,
-            NodeVersion::Req(req) => self
-                .versions
+            NodeVersion::Req(req) => versions
                 .get_fulfilling(req)
                 .ok_or_else(|| VersionError::unfulfillable_version(req.to_owned()))?,
         };
@@ -204,23 +196,9 @@ impl Repository {
 
     /// Returns the reference to all known versions
     #[tracing::instrument(level = "debug", skip(self))]
-    pub fn all_versions(&self) -> &Versions {
-        &self.versions
+    pub async fn all_versions(&mut self) -> Result<&Versions> {
+        self.downloader.versions().await
     }
-}
-
-#[inline]
-#[tracing::instrument(level = "debug", skip_all)]
-async fn load_versions(downloader: &NodeDownloader) -> Result<Versions> {
-    let versions = if let Some(v) = Versions::load().await {
-        v
-    } else {
-        let all_versions = downloader.get_versions().await?;
-        let v = Versions::new(all_versions);
-        v.save().await?;
-        v
-    };
-    Ok(versions)
 }
 
 fn build_version_path(version: &SimpleVersion) -> PathBuf {
