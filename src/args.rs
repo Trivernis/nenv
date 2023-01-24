@@ -28,6 +28,10 @@ pub enum Command {
     #[command()]
     Install(InstallArgs),
 
+    /// Uninstalls the given node version
+    #[command()]
+    Uninstall(UninstallArgs),
+
     /// Sets the specified version as the global default
     #[command()]
     Default(DefaultArgs),
@@ -65,6 +69,12 @@ pub struct ExecArgs {
 
 #[derive(Clone, Debug, Parser)]
 pub struct InstallArgs {
+    /// the version to install
+    pub version: NodeVersion,
+}
+
+#[derive(Clone, Debug, Parser)]
+pub struct UninstallArgs {
     /// the version to install
     pub version: NodeVersion,
 }

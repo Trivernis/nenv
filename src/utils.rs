@@ -3,7 +3,7 @@ use std::{
     time::Duration,
 };
 
-use dialoguer::Confirm;
+use dialoguer::{theme::ColorfulTheme, Confirm};
 use indicatif::{ProgressBar, ProgressStyle};
 
 pub fn progress_bar(total: u64) -> ProgressBar {
@@ -32,7 +32,7 @@ pub fn progress_spinner() -> ProgressBar {
 }
 
 pub fn prompt<S: ToString>(default: bool, prompt: S) -> bool {
-    Confirm::new()
+    Confirm::with_theme(&ColorfulTheme::default())
         .with_prompt(prompt.to_string())
         .default(default)
         .interact()

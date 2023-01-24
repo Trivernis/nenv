@@ -13,7 +13,7 @@ use crate::{
     versioning::{SimpleVersion, VersionMetadata},
 };
 
-use miette::{IntoDiagnostic, Result};
+use miette::{Context, IntoDiagnostic, Result};
 
 use self::{
     downloader::{versions::Versions, NodeDownloader},
@@ -171,6 +171,24 @@ impl Repository {
     pub async fn install_version(&mut self, version: &NodeVersion) -> Result<()> {
         let info = self.lookup_version(version).await?.to_owned();
         self.downloader.download(&info.version).await?;
+
+        Ok(())
+    }
+
+    /// Uninstalls the given node version by deleting the versions directory
+    #[tracing::instrument(level = "debug", skip(self))]
+    pub async fn uninstall(&mut self, version: &NodeVersion) -> Result<()> {
+        let info = self.lookup_version(version).await?;
+        let version_dir = NODE_VERSIONS_DIR.join(info.version.to_string());
+
+        if !version_dir.exists() {
+            return Err(VersionError::not_installed(version).into());
+        }
+
+        fs::remove_dir_all(version_dir)
+            .await
+            .into_diagnostic()
+            .context("Deleting node version")?;
 
         Ok(())
     }

@@ -62,6 +62,24 @@ impl Nenv {
         }
     }
 
+    #[tracing::instrument(skip(self))]
+    pub async fn uninstall(&mut self, version: NodeVersion) -> Result<()> {
+        if prompt(
+            false,
+            format!(
+                "Do you really want to uninstall node {}?",
+                version.to_string().bold()
+            ),
+        ) {
+            self.repo.uninstall(&version).await?;
+            println!("Node {} has been removed.", version.to_string().bold())
+        } else {
+            println!("Nothing changed.");
+        }
+
+        Ok(())
+    }
+
     /// Sets the system-wide default version
     #[tracing::instrument(skip(self))]
     pub async fn set_system_default(&mut self, version: NodeVersion) -> Result<()> {
