@@ -5,8 +5,10 @@ use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use tokio::fs;
 
-use crate::{consts::VERSION_FILE_PATH, error::SerializeBincodeError, web_api::VersionInfo};
+use crate::{consts::VERSION_FILE_PATH, error::SerializeBincodeError};
 use miette::{Context, IntoDiagnostic, Result};
+
+use super::downloader::VersionInfo;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Versions {

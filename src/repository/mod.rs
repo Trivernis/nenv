@@ -1,34 +1,26 @@
 use core::fmt;
-use std::{
-    path::{Path, PathBuf},
-    str::FromStr,
-};
+use std::{path::PathBuf, str::FromStr};
 
 use futures::future;
 use semver::{Version, VersionReq};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use tokio::{
-    fs::{self, File},
-    io::BufWriter,
-};
+use tokio::fs;
 
 use crate::{
     config::ConfigAccess,
-    consts::{
-        ARCH, BIN_DIR, CACHE_DIR, CFG_DIR, DATA_DIR, NODE_ARCHIVE_SUFFIX, NODE_VERSIONS_DIR, OS,
-    },
+    consts::{ARCH, BIN_DIR, CACHE_DIR, CFG_DIR, DATA_DIR, NODE_VERSIONS_DIR, OS},
     error::VersionError,
-    web_api::WebApi,
 };
 
 use miette::{IntoDiagnostic, Result};
 
 use self::{
+    downloader::NodeDownloader,
     node_path::NodePath,
     versions::{SimpleVersion, SimpleVersionInfo, Versions},
 };
 
-pub(crate) mod extract;
+pub mod downloader;
 pub(crate) mod node_path;
 pub mod versions;
 
@@ -89,7 +81,7 @@ impl fmt::Display for NodeVersion {
 
 pub struct Repository {
     versions: Versions,
-    web_api: WebApi,
+    downloader: NodeDownloader,
 }
 
 impl Repository {
@@ -97,10 +89,13 @@ impl Repository {
     #[tracing::instrument(level = "debug", skip_all)]
     pub async fn init(config: ConfigAccess) -> Result<Self> {
         Self::create_folders().await?;
-        let web_api = WebApi::new(&config.get().await.download.dist_base_url);
-        let versions = load_versions(&web_api).await?;
+        let downloader = NodeDownloader::new(config.clone());
+        let versions = load_versions(&downloader).await?;
 
-        Ok(Self { web_api, versions })
+        Ok(Self {
+            downloader,
+            versions,
+        })
     }
 
     #[tracing::instrument(level = "debug")]
@@ -165,6 +160,13 @@ impl Repository {
         Ok(build_version_path(&info.version).exists())
     }
 
+    /// Installs the given node version
+    #[tracing::instrument(level = "debug", skip(self))]
+    pub async fn install_version(&self, version: &NodeVersion) -> Result<()> {
+        let info = self.lookup_version(version)?;
+        self.downloader.download(&info.version).await
+    }
+
     /// Performs a lookup for the given node version
     #[tracing::instrument(level = "debug", skip(self))]
     pub fn lookup_version(
@@ -192,49 +194,15 @@ impl Repository {
     pub fn all_versions(&self) -> &Versions {
         &self.versions
     }
-
-    /// Installs a specified node version
-    #[tracing::instrument(level = "debug", skip(self))]
-    pub async fn install_version(&self, version_req: &NodeVersion) -> Result<()> {
-        let info = self.lookup_version(version_req)?;
-        let archive_path = self.download_version(&info.version).await?;
-        self.extract_archive(&info.version, &archive_path)?;
-
-        Ok(())
-    }
-
-    #[tracing::instrument(level = "debug", skip(self))]
-    async fn download_version(&self, version: &SimpleVersion) -> Result<PathBuf> {
-        let download_path = CACHE_DIR.join(format!("node-v{}{}", version, *NODE_ARCHIVE_SUFFIX));
-
-        if download_path.exists() {
-            return Ok(download_path);
-        }
-        let mut download_writer =
-            BufWriter::new(File::create(&download_path).await.into_diagnostic()?);
-        self.web_api
-            .download_version(version.to_string(), &mut download_writer)
-            .await?;
-
-        Ok(download_path)
-    }
-
-    #[tracing::instrument(level = "debug", skip(self))]
-    fn extract_archive(&self, version: &SimpleVersion, archive_path: &Path) -> Result<()> {
-        let dst_path = NODE_VERSIONS_DIR.join(version.to_string());
-        extract::extract_file(archive_path, &dst_path)?;
-
-        Ok(())
-    }
 }
 
 #[inline]
 #[tracing::instrument(level = "debug", skip_all)]
-async fn load_versions(web_api: &WebApi) -> Result<Versions> {
+async fn load_versions(downloader: &NodeDownloader) -> Result<Versions> {
     let versions = if let Some(v) = Versions::load().await {
         v
     } else {
-        let all_versions = web_api.get_versions().await?;
+        let all_versions = downloader.get_versions().await?;
         let v = Versions::new(all_versions);
         v.save().await?;
         v

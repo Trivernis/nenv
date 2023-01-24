@@ -4,19 +4,6 @@ use miette::{Diagnostic, NamedSource, SourceSpan};
 
 use thiserror::Error;
 
-use crate::repository::extract::ExtractError;
-
-#[derive(Debug, Error, Diagnostic)]
-pub enum Error {
-    #[diagnostic(code(nenv::extract))]
-    #[error("The node archive could not be extracted")]
-    Extract(#[from] ExtractError),
-
-    #[diagnostic(code(nenv::version))]
-    #[error("The passed version is invalid")]
-    Version(#[from] VersionError),
-}
-
 #[derive(Debug, Error, Diagnostic)]
 #[error("{detail}")]
 #[diagnostic(code(nenv::version), help("Make sure there's no typo in the version."))]

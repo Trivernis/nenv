@@ -10,7 +10,6 @@ pub mod error;
 pub mod mapper;
 pub mod repository;
 mod utils;
-mod web_api;
 use miette::Result;
 use tracing::metadata::LevelFilter;
 use tracing_subscriber::fmt::format::FmtSpan;
