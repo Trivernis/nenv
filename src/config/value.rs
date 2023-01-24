@@ -15,7 +15,6 @@ pub struct Config {
 pub struct NodeConfig {
     /// The default version if no version is specified
     /// in the `package.json` file or `NODE_VERSION` environment variable
-    #[serde(with = "NodeVersion")]
     pub default_version: NodeVersion,
 }
 

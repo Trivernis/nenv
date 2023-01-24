@@ -56,13 +56,23 @@ impl FromStr for NodeVersion {
     }
 }
 
-impl NodeVersion {
-    pub fn deserialize<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+impl<'de> Deserialize<'de> for NodeVersion {
+    #[inline]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
         let string = String::deserialize(deserializer)?;
         Self::from_str(&string).map_err(serde::de::Error::custom)
     }
+}
 
-    pub fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+impl Serialize for NodeVersion {
+    #[inline]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
         self.to_string().serialize(serializer)
     }
 }
@@ -165,7 +175,9 @@ impl Repository {
     #[tracing::instrument(level = "debug", skip(self))]
     pub async fn install_version(&self, version: &NodeVersion) -> Result<()> {
         let info = self.lookup_version(version)?;
-        self.downloader.download(&info.version).await
+        self.downloader.download(&info.version).await?;
+
+        Ok(())
     }
 
     /// Performs a lookup for the given node version
