@@ -104,9 +104,14 @@ impl Repository {
 
         let installed_versions = match InstalledVersions::load() {
             Ok(v) => v,
-            Err(_) => load_installed_versions_info(downloader.versions().await?)
-                .await?
-                .into(),
+            Err(_) => {
+                let installed: InstalledVersions =
+                    load_installed_versions_info(downloader.versions().await?)
+                        .await?
+                        .into();
+                installed.save()?;
+                installed
+            }
         };
 
         Ok(Self {

@@ -17,6 +17,7 @@ pub struct InstalledVersions {
 impl InstalledVersions {
     pub fn new(mut versions: Vec<(SimpleVersion, VersionMetadata)>) -> Self {
         versions.sort_by_key(|e| e.0);
+        versions.dedup_by_key(|e| e.0);
         Self {
             ordered_versions: versions,
         }
@@ -53,6 +54,7 @@ impl InstalledVersions {
     pub fn insert(&mut self, version: (SimpleVersion, VersionMetadata)) {
         self.ordered_versions.push(version);
         self.ordered_versions.sort_by_key(|e| e.0);
+        self.ordered_versions.dedup_by_key(|e| e.0);
     }
 
     /// Removes a version. This keeps the order intact
