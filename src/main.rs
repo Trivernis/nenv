@@ -48,6 +48,7 @@ async fn main() -> Result<()> {
         args::Command::RemapBinaries => nenv.remap().await,
         args::Command::ListVersions => nenv.list_versions().await,
         args::Command::Init => nenv.init_nenv().await,
+        args::Command::ClearCache => nenv.clear_cache().await,
         _ => xkcd_unreachable!(),
     }?;
 

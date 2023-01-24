@@ -2,7 +2,7 @@ use std::{ffi::OsString, str::FromStr};
 
 use crate::{
     config::ConfigAccess,
-    consts::{BIN_DIR, VERSION_FILE_PATH},
+    consts::{BIN_DIR, CACHE_DIR, VERSION_FILE_PATH},
     error::VersionError,
     mapper::Mapper,
     repository::{NodeVersion, Repository},
@@ -11,7 +11,7 @@ use crate::{
 };
 use crossterm::style::Stylize;
 use dialoguer::{theme::ColorfulTheme, Input, Select};
-use miette::{IntoDiagnostic, Result};
+use miette::{Context, IntoDiagnostic, Result};
 use tokio::fs;
 
 pub struct Nenv {
@@ -138,6 +138,7 @@ impl Nenv {
     }
 
     /// Initializes nenv and prompts for a default version.
+    #[tracing::instrument(skip(self))]
     pub async fn init_nenv(&mut self) -> Result<()> {
         let items = vec!["latest", "lts", "custom"];
         let selection = Select::with_theme(&ColorfulTheme::default())
@@ -166,6 +167,22 @@ impl Nenv {
             BIN_DIR.to_string_lossy().yellow(),
             "to your PATH environment variables.".bold()
         );
+
+        Ok(())
+    }
+
+    /// Clears the download cache
+    #[tracing::instrument(skip(self))]
+    pub async fn clear_cache(&self) -> Result<()> {
+        fs::remove_dir_all(&*CACHE_DIR)
+            .await
+            .into_diagnostic()
+            .context("Removing cache directory")?;
+        fs::create_dir_all(&*CACHE_DIR)
+            .await
+            .into_diagnostic()
+            .context("Creating cache directory")?;
+        println!("Cleared download cache.");
 
         Ok(())
     }

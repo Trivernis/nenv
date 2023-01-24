@@ -20,6 +20,10 @@ pub enum Command {
     #[command(short_flag = 'v', aliases = &["--version"])]
     Version,
 
+    /// Initializes nenv directories and installs a default node version
+    #[command()]
+    Init,
+
     /// Installs the given node version
     #[command()]
     Install(InstallArgs),
@@ -43,9 +47,9 @@ pub enum Command {
     #[command()]
     Exec(ExecArgs),
 
-    /// Initializes nenv directories and installs a default node version
+    /// Clears the download cache
     #[command()]
-    Init,
+    ClearCache,
 }
 
 #[derive(Clone, Debug, Parser)]
