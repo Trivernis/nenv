@@ -40,6 +40,10 @@ pub enum Command {
     /// Executes the given version specific  node executable
     #[command()]
     Exec(ExecArgs),
+
+    /// Initializes nenv directories and installs a default node version
+    #[command()]
+    Init,
 }
 
 #[derive(Clone, Debug, Parser)]

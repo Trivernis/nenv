@@ -46,6 +46,7 @@ async fn main() -> Result<()> {
         }
         args::Command::Refresh => nenv.refresh().await,
         args::Command::ListVersions => nenv.list_versions().await,
+        args::Command::Init => nenv.init_nenv().await,
         _ => xkcd_unreachable!(),
     }?;
 

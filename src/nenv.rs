@@ -1,8 +1,8 @@
-use std::ffi::OsString;
+use std::{ffi::OsString, str::FromStr};
 
 use crate::{
     config::ConfigAccess,
-    consts::VERSION_FILE_PATH,
+    consts::{BIN_DIR, VERSION_FILE_PATH},
     error::VersionError,
     mapper::Mapper,
     repository::{NodeVersion, Repository},
@@ -10,6 +10,7 @@ use crate::{
     version_detection::{self, VersionDetector},
 };
 use crossterm::style::Stylize;
+use dialoguer::{theme::ColorfulTheme, Input, Select};
 use miette::{IntoDiagnostic, Result};
 use tokio::fs;
 
@@ -132,6 +133,39 @@ impl Nenv {
                 println!(" {}{}", version.to_string().blue(), lts)
             }
         }
+
+        Ok(())
+    }
+
+    /// Initializes nenv and prompts for a default version.
+    pub async fn init_nenv(&self) -> Result<()> {
+        let items = vec!["latest", "lts", "custom"];
+        let selection = Select::with_theme(&ColorfulTheme::default())
+            .with_prompt("Select a default node version")
+            .items(&items)
+            .default(0)
+            .interact()
+            .into_diagnostic()?;
+
+        let version = if items[selection] == "custom" {
+            let version_string: String = Input::with_theme(&ColorfulTheme::default())
+                .with_prompt("Enter a version number: ")
+                .interact_text()
+                .into_diagnostic()?;
+            NodeVersion::from_str(&version_string).unwrap()
+        } else {
+            NodeVersion::from_str(items[selection]).unwrap()
+        };
+
+        self.repo.install_version(&version).await?;
+
+        println!("{}", "Initialized!".green());
+        println!(
+            "{}\n  {}\n{}",
+            "Make sure to add".bold(),
+            BIN_DIR.to_string_lossy().yellow(),
+            "to your PATH environment variables.".bold()
+        );
 
         Ok(())
     }
