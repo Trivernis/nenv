@@ -45,7 +45,7 @@ async fn main() -> Result<()> {
 
             process::exit(exit_code);
         }
-        args::Command::Refresh => nenv.refresh().await,
+        args::Command::RemapBinaries => nenv.remap().await,
         args::Command::ListVersions => nenv.list_versions().await,
         args::Command::Init => nenv.init_nenv().await,
         _ => xkcd_unreachable!(),

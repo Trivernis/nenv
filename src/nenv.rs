@@ -101,8 +101,7 @@ impl Nenv {
 
     /// Clears the version cache and remaps all executables
     #[tracing::instrument(skip(self))]
-    pub async fn refresh(&mut self) -> Result<()> {
-        Self::clear_version_cache().await?;
+    pub async fn remap(&mut self) -> Result<()> {
         self.get_mapper().await?.remap().await
     }
 

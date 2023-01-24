@@ -28,10 +28,12 @@ pub enum Command {
     #[command()]
     Default(DefaultArgs),
 
-    /// Refreshes the node environment mappings and cache.
-    /// This will erase all binary mappings not relevant to the current node version.
+    /// Creates wrapper scripts for node binaries
+    /// so they can be found in the path and are executed
+    /// with the correct node version. This will delete
+    /// all binary wrappers that don't apply to the active node version.
     #[command()]
-    Refresh,
+    RemapBinaries,
 
     /// Lists all available versions
     #[command(name = "list-versions")]
