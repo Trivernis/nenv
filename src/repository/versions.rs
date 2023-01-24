@@ -167,7 +167,7 @@ impl Versions {
             .collect::<Vec<_>>();
 
         let version = fulfilling_versions.last()?.clone().into();
-        self.versions.get(&version).into()
+        self.versions.get(&version)
     }
 
     /// Returns the info for the given version
@@ -186,7 +186,7 @@ impl Versions {
             .collect::<Vec<_>>();
 
         let version = fulfilling_versions.last()?;
-        self.versions.get(&version).into()
+        self.versions.get(version)
     }
 
     /// Creates the list of sorted versions

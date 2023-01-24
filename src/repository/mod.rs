@@ -116,6 +116,7 @@ impl Repository {
         }))
         .await
         {
+            #[allow(clippy::question_mark)]
             if let Err(e) = result {
                 return Err(e);
             }
