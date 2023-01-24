@@ -6,9 +6,9 @@ use crate::repository::downloader::VersionInfo;
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Deserialize, Serialize, Hash)]
 pub struct SimpleVersion {
-    pub major: u16,
-    pub minor: u16,
-    pub patch: u32,
+    pub major: u8,
+    pub minor: u8,
+    pub patch: u16,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -22,9 +22,9 @@ pub struct VersionMetadata {
 impl From<semver::Version> for SimpleVersion {
     fn from(value: semver::Version) -> Self {
         Self {
-            major: value.major as u16,
-            minor: value.minor as u16,
-            patch: value.patch as u32,
+            major: value.major as u8,
+            minor: value.minor as u8,
+            patch: value.patch as u16,
         }
     }
 }
