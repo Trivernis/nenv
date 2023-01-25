@@ -1,8 +1,12 @@
-use std::{ffi::OsString, process::ExitStatus};
+use std::{env, ffi::OsString, process::ExitStatus};
 
+use envmnt::ListOptions;
 use tokio::fs;
 
-use crate::{consts::BIN_DIR, repository::node_path::NodePath};
+use crate::{
+    consts::{BIN_DIR, SEARCH_PATH_SEPARATOR},
+    repository::node_path::NodePath,
+};
 
 use self::{
     mapped_command::MappedCommand,
@@ -26,6 +30,7 @@ impl Mapper {
     /// Executes a mapped command with the given node environment
     #[tracing::instrument(level = "debug", skip(self))]
     pub async fn exec(&self, command: String, args: Vec<OsString>) -> Result<ExitStatus> {
+        self.set_env();
         let executable = self.node_path.bin().join(&command);
         let exit_status = MappedCommand::new(command, executable, args).run().await?;
         self.remap_additive().await?;
@@ -59,5 +64,19 @@ impl Mapper {
                 .collect(),
         )
         .await
+    }
+
+    fn set_env(&self) {
+        env::set_var(
+            "NODE_PATH",
+            self.node_path.node_modules().to_string_lossy().to_string(),
+        );
+        let list_options = ListOptions {
+            separator: Some(SEARCH_PATH_SEPARATOR.to_string()),
+            ignore_empty: true,
+        };
+        let mut path_env = envmnt::get_list_with_options("PATH", &list_options).unwrap_or_default();
+        path_env.insert(0, self.node_path.bin().to_string_lossy().to_string());
+        envmnt::set_list_with_options("PATH", &path_env, &list_options);
     }
 }

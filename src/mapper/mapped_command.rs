@@ -1,4 +1,5 @@
 use std::{
+    env,
     ffi::OsString,
     path::PathBuf,
     process::{ExitStatus, Stdio},
@@ -8,6 +9,7 @@ use crate::error::CommandNotFoundError;
 use miette::{Context, IntoDiagnostic, Result};
 use tokio::process::Command;
 
+#[derive(Debug)]
 pub struct MappedCommand {
     name: String,
     path: PathBuf,
@@ -19,10 +21,11 @@ impl MappedCommand {
         Self { name, path, args }
     }
 
-    #[tracing::instrument(skip_all, level = "debug")]
+    #[tracing::instrument(level = "debug")]
     pub async fn run(mut self) -> Result<ExitStatus> {
         self.adjust_path()?;
         let exit_status = Command::new(self.path)
+            .envs(env::vars_os())
             .args(self.args)
             .stdin(Stdio::inherit())
             .stdout(Stdio::inherit())

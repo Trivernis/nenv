@@ -22,13 +22,13 @@ pub struct Nenv {
 
 impl Nenv {
     #[tracing::instrument(level = "debug")]
-    pub async fn init(version_override: Option<&NodeVersion>) -> Result<Self> {
+    pub async fn init(version_override: Option<NodeVersion>) -> Result<Self> {
         let config = ConfigAccess::load().await?;
         let repo = Repository::init(config.clone()).await?;
         let default_version = { config.get().await.node.default_version.to_owned() };
 
         let active_version = if let Some(version) = version_override {
-            version.to_owned()
+            version
         } else {
             Self::get_active_version().await.unwrap_or(default_version)
         };
@@ -265,7 +265,8 @@ impl Nenv {
         for (bin, cfg) in &self.config.get().await.bins {
             let path = self
                 .repo
-                .get_version_path(&cfg.node_version)?
+                .get_version_path(&cfg.node_version)
+                .await?
                 .ok_or_else(|| VersionError::not_installed(&cfg.node_version))?;
             binaries_with_path.push((bin.to_owned(), path));
         }

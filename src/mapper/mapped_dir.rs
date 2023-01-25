@@ -40,7 +40,7 @@ impl NodeApp {
             .context("Creating executable wrapper script")
     }
 
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(not(windows))]
     async fn write_wrapper_script(&self, path: &Path) -> Result<(), io::Error> {
         fs::write(path, format!("#!/bin/sh\nnenv exec {} \"$@\"", self.name)).await?;
         let src_metadata = self.path.metadata()?;
@@ -49,7 +49,7 @@ impl NodeApp {
         Ok(())
     }
 
-    #[cfg(target_os = "windows")]
+    #[cfg(windows)]
     async fn write_wrapper_script(&self, path: &Path) -> Result<(), io::Error> {
         fs::write(
             path.with_extension("bat"),
@@ -117,12 +117,12 @@ async fn get_applications(path: &Path) -> Result<Vec<NodeApp>> {
     Ok(files)
 }
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(not(windows))]
 fn exclude_path(_path: &Path) -> bool {
     false
 }
 
-#[cfg(target_os = "windows")]
+#[cfg(windows)]
 fn exclude_path(path: &Path) -> bool {
     let Some(extension) = path.extension() else {
         return true;

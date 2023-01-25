@@ -2,6 +2,10 @@ use lazy_static::lazy_static;
 use std::path::PathBuf;
 
 pub const NODE_DIST_URL: &str = "https://nodejs.org/dist";
+#[cfg(not(windows))]
+pub const SEARCH_PATH_SEPARATOR: &str = ":";
+#[cfg(windows)]
+pub const SEARCH_PATH_SEPARATOR: &str = ";";
 
 lazy_static! {
     pub static ref CFG_DIR: PathBuf = dirs::config_dir()

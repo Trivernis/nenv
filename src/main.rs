@@ -1,4 +1,4 @@
-use std::process;
+use std::{env, process};
 
 use args::Args;
 use clap::Parser;
@@ -36,7 +36,7 @@ async fn main() -> Result<()> {
         return Ok(());
     }
 
-    let mut nenv = get_nenv(args.use_version.as_ref()).await?;
+    let mut nenv = get_nenv(args.use_version.clone()).await?;
 
     match args.command {
         args::Command::Install(v) => nenv.install(v.version).await,
@@ -63,7 +63,7 @@ fn print_version() {
     println!("{} v{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
 }
 
-async fn get_nenv(version_override: Option<&NodeVersion>) -> Result<Nenv> {
+async fn get_nenv(version_override: Option<NodeVersion>) -> Result<Nenv> {
     Nenv::init(version_override).await
 }
 

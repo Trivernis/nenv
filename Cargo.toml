@@ -24,6 +24,7 @@ clap = { version = "4.1.1", features = ["derive"] }
 crossterm = "0.25.0"
 dialoguer = "0.10.3"
 dirs = "4.0.0"
+envmnt = "0.10.4"
 futures = "0.3.25"
 futures-util = "0.3.25"
 indicatif = "0.17.3"
