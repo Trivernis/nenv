@@ -11,6 +11,7 @@ pub mod mapper;
 pub mod repository;
 mod utils;
 use miette::Result;
+use repository::NodeVersion;
 use tracing::metadata::LevelFilter;
 use tracing_subscriber::fmt::format::FmtSpan;
 use xkcd_unreachable::xkcd_unreachable;
@@ -35,12 +36,12 @@ async fn main() -> Result<()> {
         return Ok(());
     }
 
-    let mut nenv = get_nenv().await?;
+    let mut nenv = get_nenv(args.use_version.as_ref()).await?;
 
     match args.command {
         args::Command::Install(v) => nenv.install(v.version).await,
         args::Command::Uninstall(v) => nenv.uninstall(v.version).await,
-        args::Command::Default(v) => nenv.set_system_default(v.version).await,
+        args::Command::SetDefault(v) => nenv.set_system_default(v.version).await,
         args::Command::Exec(args) => {
             let exit_code = nenv.exec(args.command, args.args).await?;
 
@@ -62,8 +63,8 @@ fn print_version() {
     println!("{} v{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
 }
 
-async fn get_nenv() -> Result<Nenv> {
-    Nenv::init().await
+async fn get_nenv(version_override: Option<&NodeVersion>) -> Result<Nenv> {
+    Nenv::init(version_override).await
 }
 
 fn init_tracing() {

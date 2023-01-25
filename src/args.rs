@@ -10,6 +10,10 @@ pub struct Args {
     #[arg(long)]
     pub verbose: bool,
 
+    /// Overrides all versions found in the environment and uses this one instead
+    #[arg(long)]
+    pub use_version: Option<NodeVersion>,
+
     #[command(subcommand)]
     pub command: Command,
 }
@@ -34,7 +38,7 @@ pub enum Command {
 
     /// Sets the specified version as the global default
     #[command()]
-    Default(DefaultArgs),
+    SetDefault(DefaultArgs),
 
     /// Creates wrapper scripts for node binaries
     /// so they can be found in the path and are executed

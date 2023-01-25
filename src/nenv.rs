@@ -5,7 +5,7 @@ use crate::{
     consts::{BIN_DIR, CACHE_DIR, VERSION_FILE_PATH},
     error::VersionError,
     mapper::Mapper,
-    repository::{NodeVersion, Repository},
+    repository::{node_path::NodePath, NodeVersion, Repository},
     utils::prompt,
     version_detection::{self, VersionDetector},
 };
@@ -22,11 +22,16 @@ pub struct Nenv {
 
 impl Nenv {
     #[tracing::instrument(level = "debug")]
-    pub async fn init() -> Result<Self> {
+    pub async fn init(version_override: Option<&NodeVersion>) -> Result<Self> {
         let config = ConfigAccess::load().await?;
         let repo = Repository::init(config.clone()).await?;
         let default_version = { config.get().await.node.default_version.to_owned() };
-        let active_version = Self::get_active_version().await.unwrap_or(default_version);
+
+        let active_version = if let Some(version) = version_override {
+            version.to_owned()
+        } else {
+            Self::get_active_version().await.unwrap_or(default_version)
+        };
 
         Ok(Self {
             config,
@@ -55,7 +60,11 @@ impl Nenv {
         } else {
             self.repo.install_version(&version).await?;
             self.active_version = version.to_owned();
-            self.get_mapper().await?.remap_additive().await?;
+            let mapper = self.get_mapper().await?;
+            mapper.remap_additive().await?;
+            mapper
+                .map_bins(self.get_binaries_with_path().await?)
+                .await?;
 
             println!("Installed {}", version.to_string().bold());
             Ok(())
@@ -109,6 +118,9 @@ impl Nenv {
     /// Executes a given node executable for the currently active version
     #[tracing::instrument(skip(self))]
     pub async fn exec(&mut self, command: String, args: Vec<OsString>) -> Result<i32> {
+        if let Some(cfg) = self.config.get().await.bins.get(&command) {
+            self.active_version = cfg.node_version.to_owned();
+        }
         if !self.repo.is_installed(&self.active_version).await? {
             self.repo.install_version(&self.active_version).await?;
         }
@@ -120,7 +132,9 @@ impl Nenv {
     /// Clears the version cache and remaps all executables
     #[tracing::instrument(skip(self))]
     pub async fn remap(&mut self) -> Result<()> {
-        self.get_mapper().await?.remap().await
+        let mapper = self.get_mapper().await?;
+        mapper.remap().await?;
+        mapper.map_bins(self.get_binaries_with_path().await?).await
     }
 
     /// Lists the currently installed versions
@@ -240,5 +254,19 @@ impl Nenv {
             .get_version_path(&self.active_version)?
             .ok_or_else(|| VersionError::not_installed(self.active_version.to_owned()))?;
         Ok(Mapper::new(node_path))
+    }
+
+    async fn get_binaries_with_path(&mut self) -> Result<Vec<(String, NodePath)>> {
+        let mut binaries_with_path = Vec::new();
+
+        for (bin, cfg) in &self.config.get().await.bins {
+            let path = self
+                .repo
+                .get_version_path(&cfg.node_version)?
+                .ok_or_else(|| VersionError::not_installed(&cfg.node_version))?;
+            binaries_with_path.push((bin.to_owned(), path));
+        }
+
+        Ok(binaries_with_path)
     }
 }

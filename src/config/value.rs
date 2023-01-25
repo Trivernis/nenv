@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 
 use crate::{consts::NODE_DIST_URL, repository::NodeVersion};
@@ -9,6 +11,10 @@ pub struct Config {
 
     /// Configuration for how to download node versions
     pub download: DownloadConfig,
+
+    /// List of executables that are hardwired to a given node version
+    /// and can still be executed from other versions with this given version.
+    pub bins: HashMap<String, ExecutableConfig>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -21,6 +27,14 @@ pub struct NodeConfig {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct DownloadConfig {
     pub dist_base_url: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ExecutableConfig {
+    /// The node version to run this executable with.
+    /// This means that whatever the currently active version is
+    /// the given executable will always be executed with the configured one.
+    pub node_version: NodeVersion,
 }
 
 impl Default for NodeConfig {

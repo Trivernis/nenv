@@ -129,20 +129,18 @@ impl Repository {
             &*BIN_DIR,
             &*NODE_VERSIONS_DIR,
         ];
-        for result in future::join_all(dirs.into_iter().map(|dir| async move {
+        future::join_all(dirs.into_iter().map(|dir| async move {
             if !dir.exists() {
-                fs::create_dir_all(dir).await.into_diagnostic()?;
+                fs::create_dir_all(dir).await?;
             }
 
-            Ok(())
+            Result::<(), std::io::Error>::Ok(())
         }))
         .await
-        {
-            #[allow(clippy::question_mark)]
-            if let Err(e) = result {
-                return Err(e);
-            }
-        }
+        .into_iter()
+        .fold(Result::Ok(()), |acc, res| acc.and_then(|_| res))
+        .into_diagnostic()
+        .wrap_err("Failed to create application directory")?;
 
         Ok(())
     }

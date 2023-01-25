@@ -71,6 +71,7 @@ impl ConfigAccess {
 
             let cfg = toml::from_str(&cfg_string)
                 .map_err(|e| ParseConfigError::new("config.toml", cfg_string, e))?;
+            tracing::debug!("{cfg:?}");
 
             Ok(Self::new(cfg))
         }

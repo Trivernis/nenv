@@ -4,7 +4,10 @@ use tokio::fs;
 
 use crate::{consts::BIN_DIR, repository::node_path::NodePath};
 
-use self::{mapped_command::MappedCommand, mapped_dir::map_node_bin};
+use self::{
+    mapped_command::MappedCommand,
+    mapped_dir::{map_direct, map_node_bin},
+};
 use miette::{IntoDiagnostic, Result};
 
 mod mapped_command;
@@ -45,5 +48,16 @@ impl Mapper {
         map_node_bin(&self.node_path).await?;
 
         Ok(())
+    }
+
+    /// Maps all binaries
+    pub async fn map_bins(&self, binaries: Vec<(String, NodePath)>) -> Result<()> {
+        map_direct(
+            binaries
+                .into_iter()
+                .map(|(cmd, path)| path.bin().join(cmd))
+                .collect(),
+        )
+        .await
     }
 }

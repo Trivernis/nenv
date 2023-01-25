@@ -1,22 +1,26 @@
-use std::{collections::HashSet, io, path::Path};
+use std::{
+    collections::HashSet,
+    io,
+    path::{Path, PathBuf},
+};
 
-use tokio::fs::{self, DirEntry};
+use miette::miette;
+use tokio::fs;
 
 use crate::{consts::BIN_DIR, error::MapDirError, repository::node_path::NodePath};
 
 use miette::{Context, IntoDiagnostic, Result};
-struct NodeApp {
-    info: DirEntry,
+pub struct NodeApp {
+    path: PathBuf,
     name: String,
 }
 
 impl NodeApp {
-    pub fn new(info: DirEntry) -> Self {
-        let path = info.path();
+    pub fn new(path: PathBuf) -> Self {
         let name = path.file_stem().unwrap();
         let name = name.to_string_lossy().into_owned();
 
-        Self { info, name }
+        Self { path, name }
     }
 
     pub fn name(&self) -> &String {
@@ -25,7 +29,11 @@ impl NodeApp {
 
     /// creates wrappers to map this application
     pub async fn map_executable(&self) -> Result<()> {
-        let src_path = BIN_DIR.join(self.info.file_name());
+        let src_path = BIN_DIR.join(
+            self.path
+                .file_name()
+                .ok_or_else(|| miette!("The given path is not a file."))?,
+        );
         self.write_wrapper_script(&src_path)
             .await
             .into_diagnostic()
@@ -35,7 +43,7 @@ impl NodeApp {
     #[cfg(not(target_os = "windows"))]
     async fn write_wrapper_script(&self, path: &Path) -> Result<(), io::Error> {
         fs::write(path, format!("#!/bin/sh\nnenv exec {} \"$@\"", self.name)).await?;
-        let src_metadata = self.info.metadata().await?;
+        let src_metadata = self.path.metadata()?;
         fs::set_permissions(&path, src_metadata.permissions()).await?;
 
         Ok(())
@@ -48,11 +56,26 @@ impl NodeApp {
             format!("@echo off\nnenv exec {} %*", self.name),
         )
         .await?;
-        let src_metadata = self.info.metadata().await?;
+        let src_metadata = self.path.metadata()?;
         fs::set_permissions(&path, src_metadata.permissions()).await?;
 
         Ok(())
     }
+}
+
+pub async fn map_direct(paths: Vec<PathBuf>) -> Result<()> {
+    let results = futures::future::join_all(
+        paths
+            .into_iter()
+            .map(NodeApp::new)
+            .map(|n| async move { n.map_executable().await }),
+    )
+    .await;
+    results
+        .into_iter()
+        .fold(Result::Ok(()), |acc, res| acc.and_then(|_| res))?;
+
+    Ok(())
 }
 
 pub async fn map_node_bin(node_path: &NodePath) -> Result<()> {
@@ -87,7 +110,7 @@ async fn get_applications(path: &Path) -> Result<Vec<NodeApp>> {
         let entry_path = entry.path();
 
         if entry_path.is_file() && !exclude_path(&entry_path) {
-            files.push(NodeApp::new(entry));
+            files.push(NodeApp::new(entry.path()));
         }
     }
 
