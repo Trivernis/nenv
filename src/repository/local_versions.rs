@@ -66,18 +66,6 @@ impl InstalledVersions {
         self.ordered_versions.iter().map(|(v, _)| v).collect()
     }
 
-    pub fn latest(&self) -> Option<&VersionMetadata> {
-        self.ordered_versions.last().map(|(_, m)| m)
-    }
-
-    pub fn latest_lts(&self) -> Option<&VersionMetadata> {
-        self.ordered_versions
-            .iter()
-            .filter(|(_, m)| m.lts.is_some())
-            .last()
-            .map(|(_, m)| m)
-    }
-
     pub fn lts<S: AsRef<str>>(&self, lts: S) -> Option<&VersionMetadata> {
         self.ordered_versions
             .iter()
