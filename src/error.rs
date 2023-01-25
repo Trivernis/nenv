@@ -23,7 +23,7 @@ impl VersionError {
         let mut pos = (0, src.len()).into();
         let clean_src = src.trim_start_matches('^');
 
-        if let Some((arg_str, arg_pos)) = find_in_args(&clean_src) {
+        if let Some((arg_str, arg_pos)) = find_in_args(clean_src) {
             pos = arg_pos;
             src = arg_str;
         }
@@ -183,6 +183,6 @@ pub fn find_in_args(query: &str) -> Option<(String, SourceSpan)> {
     let args_string = std::env::args().fold(String::new(), |s, acc| format!("{s} {acc}"));
 
     args_string
-        .find(&query)
+        .find(query)
         .map(|index| (args_string, (index, query.len()).into()))
 }

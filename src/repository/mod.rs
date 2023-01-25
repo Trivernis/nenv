@@ -138,7 +138,7 @@ impl Repository {
         }))
         .await
         .into_iter()
-        .fold(Result::Ok(()), |acc, res| acc.and_then(|_| res))
+        .fold(Result::Ok(()), |acc, res| acc.and(res))
         .into_diagnostic()
         .wrap_err("Failed to create application directory")?;
 
@@ -167,7 +167,7 @@ impl Repository {
         self.installed_versions
             .all()
             .into_iter()
-            .map(|v| v.clone().into())
+            .map(|v| (*v).into())
             .collect()
     }
 

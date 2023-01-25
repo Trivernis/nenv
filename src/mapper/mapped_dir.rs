@@ -73,7 +73,7 @@ pub async fn map_direct(paths: Vec<PathBuf>) -> Result<()> {
     .await;
     results
         .into_iter()
-        .fold(Result::Ok(()), |acc, res| acc.and_then(|_| res))?;
+        .fold(Result::Ok(()), |acc, res| acc.and(res))?;
 
     Ok(())
 }
