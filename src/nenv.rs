@@ -62,6 +62,24 @@ impl Nenv {
         }
     }
 
+    #[tracing::instrument(skip(self))]
+    pub async fn uninstall(&mut self, version: NodeVersion) -> Result<()> {
+        if prompt(
+            false,
+            format!(
+                "Do you really want to uninstall node {}?",
+                version.to_string().bold()
+            ),
+        ) {
+            self.repo.uninstall(&version).await?;
+            println!("Node {} has been removed.", version.to_string().bold())
+        } else {
+            println!("Nothing changed.");
+        }
+
+        Ok(())
+    }
+
     /// Sets the system-wide default version
     #[tracing::instrument(skip(self))]
     pub async fn set_system_default(&mut self, version: NodeVersion) -> Result<()> {
@@ -108,8 +126,11 @@ impl Nenv {
     /// Lists the currently installed versions
     #[tracing::instrument(skip(self))]
     pub async fn list_versions(&mut self) -> Result<()> {
-        let versions = self.repo.installed_versions().await?;
-        let active_version = self.repo.lookup_version(&self.active_version).await?;
+        let versions = self.repo.installed_versions();
+        let active_version = self
+            .repo
+            .lookup_remote_version(&self.active_version)
+            .await?;
         let active_version = active_version.version.into();
 
         println!("{}", "Installed versions:".bold());
@@ -216,8 +237,7 @@ impl Nenv {
     async fn get_mapper(&mut self) -> Result<Mapper> {
         let node_path = self
             .repo
-            .get_version_path(&self.active_version)
-            .await?
+            .get_version_path(&self.active_version)?
             .ok_or_else(|| VersionError::not_installed(self.active_version.to_owned()))?;
         Ok(Mapper::new(node_path))
     }

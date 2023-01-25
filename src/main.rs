@@ -39,6 +39,7 @@ async fn main() -> Result<()> {
 
     match args.command {
         args::Command::Install(v) => nenv.install(v.version).await,
+        args::Command::Uninstall(v) => nenv.uninstall(v.version).await,
         args::Command::Default(v) => nenv.set_system_default(v.version).await,
         args::Command::Exec(args) => {
             let exit_code = nenv.exec(args.command, args.args).await?;

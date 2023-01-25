@@ -13,10 +13,11 @@ use crate::{
     versioning::{SimpleVersion, VersionMetadata},
 };
 
-use miette::{IntoDiagnostic, Result};
+use miette::{Context, IntoDiagnostic, Result};
 
 use self::{
     downloader::{versions::Versions, NodeDownloader},
+    local_versions::InstalledVersions,
     node_path::NodePath,
 };
 
@@ -91,6 +92,7 @@ impl fmt::Display for NodeVersion {
 
 pub struct Repository {
     downloader: NodeDownloader,
+    installed_versions: InstalledVersions,
 }
 
 impl Repository {
@@ -98,9 +100,24 @@ impl Repository {
     #[tracing::instrument(level = "debug", skip_all)]
     pub async fn init(config: ConfigAccess) -> Result<Self> {
         Self::create_folders().await?;
-        let downloader = NodeDownloader::new(config.clone());
+        let mut downloader = NodeDownloader::new(config.clone());
 
-        Ok(Self { downloader })
+        let installed_versions = match InstalledVersions::load() {
+            Ok(v) => v,
+            Err(_) => {
+                let installed: InstalledVersions =
+                    load_installed_versions_info(downloader.versions().await?)
+                        .await?
+                        .into();
+                installed.save()?;
+                installed
+            }
+        };
+
+        Ok(Self {
+            downloader,
+            installed_versions,
+        })
     }
 
     #[tracing::instrument(level = "debug")]
@@ -132,8 +149,8 @@ impl Repository {
 
     /// Returns the path for the given node version
     #[tracing::instrument(level = "debug", skip(self))]
-    pub async fn get_version_path(&mut self, version: &NodeVersion) -> Result<Option<NodePath>> {
-        let info = self.lookup_version(version).await?;
+    pub fn get_version_path(&mut self, version: &NodeVersion) -> Result<Option<NodePath>> {
+        let info = self.lookup_local_version(version)?;
         let path = build_version_path(&info.version);
 
         Ok(if path.exists() {
@@ -144,24 +161,22 @@ impl Repository {
     }
 
     /// Returns a list of installed versions
-    #[tracing::instrument(level = "debug", skip(self))]
-    pub async fn installed_versions(&self) -> Result<Vec<Version>> {
-        let mut versions = Vec::new();
-        let mut iter = fs::read_dir(&*NODE_VERSIONS_DIR).await.into_diagnostic()?;
-
-        while let Some(entry) = iter.next_entry().await.into_diagnostic()? {
-            if let Ok(version) = Version::parse(entry.file_name().to_string_lossy().as_ref()) {
-                versions.push(version);
-            };
-        }
-
-        Ok(versions)
+    pub fn installed_versions(&self) -> Vec<Version> {
+        self.installed_versions
+            .all()
+            .into_iter()
+            .map(|v| v.clone().into())
+            .collect()
     }
 
     /// Returns if the given version is installed
     #[tracing::instrument(level = "debug", skip(self))]
     pub async fn is_installed(&mut self, version: &NodeVersion) -> Result<bool> {
-        let info = self.lookup_version(version).await?;
+        let info = if let Ok(v) = self.lookup_local_version(version) {
+            v
+        } else {
+            self.lookup_remote_version(version).await?
+        };
 
         Ok(build_version_path(&info.version).exists())
     }
@@ -169,15 +184,40 @@ impl Repository {
     /// Installs the given node version
     #[tracing::instrument(level = "debug", skip(self))]
     pub async fn install_version(&mut self, version: &NodeVersion) -> Result<()> {
-        let info = self.lookup_version(version).await?.to_owned();
+        let info = self.lookup_remote_version(version).await?.to_owned();
         self.downloader.download(&info.version).await?;
+        self.installed_versions.insert((info.version, info));
+        self.installed_versions.save()?;
+
+        Ok(())
+    }
+
+    /// Uninstalls the given node version by deleting the versions directory
+    #[tracing::instrument(level = "debug", skip(self))]
+    pub async fn uninstall(&mut self, version: &NodeVersion) -> Result<()> {
+        let info = self.lookup_local_version(version)?.clone();
+        let version_dir = NODE_VERSIONS_DIR.join(info.version.to_string());
+
+        if !version_dir.exists() {
+            return Err(VersionError::not_installed(version).into());
+        }
+
+        fs::remove_dir_all(version_dir)
+            .await
+            .into_diagnostic()
+            .context("Deleting node version")?;
+        self.installed_versions.remove(&info.version);
+        self.installed_versions.save()?;
 
         Ok(())
     }
 
     /// Performs a lookup for the given node version
     #[tracing::instrument(level = "debug", skip(self))]
-    pub async fn lookup_version(&mut self, version_req: &NodeVersion) -> Result<&VersionMetadata> {
+    pub async fn lookup_remote_version(
+        &mut self,
+        version_req: &NodeVersion,
+    ) -> Result<&VersionMetadata> {
         let versions = self.downloader.versions().await?;
 
         let version = match version_req {
@@ -188,6 +228,28 @@ impl Repository {
                 .ok_or_else(|| VersionError::unknown_version(lts.to_owned()))?,
             NodeVersion::Req(req) => versions
                 .get_fulfilling(req)
+                .ok_or_else(|| VersionError::unfulfillable_version(req.to_owned()))?,
+        };
+
+        Ok(version)
+    }
+
+    /// Performs a lookup for the given node version
+    #[tracing::instrument(level = "debug", skip(self))]
+    pub fn lookup_local_version(&self, version_req: &NodeVersion) -> Result<&VersionMetadata> {
+        let versions = &self.installed_versions;
+        let version = match version_req {
+            NodeVersion::Latest => versions
+                .latest()
+                .ok_or_else(|| VersionError::not_installed("latest"))?,
+            NodeVersion::LatestLts => versions
+                .latest_lts()
+                .ok_or_else(|| VersionError::not_installed("lts"))?,
+            NodeVersion::Lts(lts) => versions
+                .lts(lts)
+                .ok_or_else(|| VersionError::unknown_version(lts.to_owned()))?,
+            NodeVersion::Req(req) => versions
+                .fulfilling(req)
                 .ok_or_else(|| VersionError::unfulfillable_version(req.to_owned()))?,
         };
 
@@ -205,4 +267,22 @@ fn build_version_path(version: &SimpleVersion) -> PathBuf {
     NODE_VERSIONS_DIR
         .join(version.to_string())
         .join(format!("node-v{}-{}-{}", version, OS, ARCH))
+}
+
+async fn load_installed_versions_info(versions: &Versions) -> Result<Vec<VersionMetadata>> {
+    let mut installed_versions = Vec::new();
+    let mut iter = fs::read_dir(&*NODE_VERSIONS_DIR).await.into_diagnostic()?;
+
+    while let Some(entry) = iter.next_entry().await.into_diagnostic()? {
+        if let Ok(version) = Version::parse(entry.file_name().to_string_lossy().as_ref()) {
+            installed_versions.push(version);
+        };
+    }
+    let versions = installed_versions
+        .into_iter()
+        .filter_map(|v| versions.get(&v))
+        .cloned()
+        .collect();
+
+    Ok(versions)
 }

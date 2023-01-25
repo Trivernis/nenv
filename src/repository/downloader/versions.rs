@@ -16,7 +16,7 @@ use super::VersionInfo;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Versions {
-    lts_versions: HashMap<String, u16>,
+    lts_versions: HashMap<String, u8>,
     versions: HashMap<SimpleVersion, VersionMetadata>,
     // as this field is not serialized
     // it needs to be calculated after serialization
@@ -53,7 +53,7 @@ impl Versions {
     pub fn new(all_versions: Vec<VersionInfo>) -> Self {
         let lts_versions = all_versions
             .iter()
-            .filter_map(|v| Some((v.lts.lts_ref()?.to_lowercase(), v.version.major as u16)))
+            .filter_map(|v| Some((v.lts.lts_ref()?.to_lowercase(), v.version.major as u8)))
             .collect::<HashMap<_, _>>();
         let mut sorted_versions = all_versions
             .iter()
@@ -133,7 +133,7 @@ impl Versions {
 
     /// Returns any version that fulfills the given requirement
     #[tracing::instrument(level = "debug", skip(self))]
-    fn get_latest_for_major(&self, major: u16) -> Option<&VersionMetadata> {
+    fn get_latest_for_major(&self, major: u8) -> Option<&VersionMetadata> {
         let fulfilling_versions = self
             .sorted_versions
             .iter()
