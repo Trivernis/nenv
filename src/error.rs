@@ -19,8 +19,14 @@ pub struct VersionError {
 
 impl VersionError {
     pub fn new<S1: ToString, S2: ToString>(src: S1, detail: S2) -> Self {
-        let src = src.to_string();
-        let pos = (0, src.len()).into();
+        let mut src = src.to_string();
+        let mut pos = (0, src.len()).into();
+        let clean_src = src.trim_start_matches('^');
+
+        if let Some((arg_str, arg_pos)) = find_in_args(&clean_src) {
+            pos = arg_pos;
+            src = arg_str;
+        }
 
         Self {
             src,
@@ -39,6 +45,13 @@ impl VersionError {
 
     pub fn not_installed<S: ToString>(src: S) -> Self {
         Self::new(src, "The version is not installed.")
+    }
+
+    pub fn unsupported<S: ToString>(src: S) -> Self {
+        Self::new(
+            src,
+            "This type of version string is not supported with this operation.",
+        )
     }
 }
 
@@ -132,14 +145,18 @@ pub struct CommandNotFoundError {
 
 impl CommandNotFoundError {
     pub fn new(command: String, args: Vec<OsString>, path: PathBuf) -> Self {
-        let pos = (0, command.len()).into();
-        let full_command = format!(
-            "{command} {}",
-            args.into_iter()
-                .map(|a| a.into_string().unwrap_or_default())
-                .collect::<Vec<_>>()
-                .join(" ")
-        );
+        let (full_command, pos) = find_in_args(&command).unwrap_or_else(|| {
+            let pos = (0, command.len()).into();
+            let full_command = format!(
+                "{command} {}",
+                args.into_iter()
+                    .map(|a| a.into_string().unwrap_or_default())
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            );
+            (full_command, pos)
+        });
+
         Self {
             command,
             full_command,
@@ -160,4 +177,12 @@ pub struct MapDirError {
 
     #[source]
     pub caused_by: std::io::Error,
+}
+
+pub fn find_in_args(query: &str) -> Option<(String, SourceSpan)> {
+    let args_string = std::env::args().fold(String::new(), |s, acc| format!("{s} {acc}"));
+
+    args_string
+        .find(&query)
+        .map(|index| (args_string, (index, query.len()).into()))
 }

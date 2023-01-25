@@ -64,6 +64,8 @@ impl Nenv {
 
     #[tracing::instrument(skip(self))]
     pub async fn uninstall(&mut self, version: NodeVersion) -> Result<()> {
+        self.repo.lookup_local_version(&version)?;
+
         if prompt(
             false,
             format!(
@@ -237,7 +239,8 @@ impl Nenv {
     async fn get_mapper(&mut self) -> Result<Mapper> {
         let node_path = self
             .repo
-            .get_version_path(&self.active_version)?
+            .get_version_path(&self.active_version)
+            .await?
             .ok_or_else(|| VersionError::not_installed(self.active_version.to_owned()))?;
         Ok(Mapper::new(node_path))
     }

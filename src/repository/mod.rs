@@ -149,8 +149,12 @@ impl Repository {
 
     /// Returns the path for the given node version
     #[tracing::instrument(level = "debug", skip(self))]
-    pub fn get_version_path(&mut self, version: &NodeVersion) -> Result<Option<NodePath>> {
-        let info = self.lookup_local_version(version)?;
+    pub async fn get_version_path(&mut self, version: &NodeVersion) -> Result<Option<NodePath>> {
+        let info = if let Ok(i) = self.lookup_local_version(version) {
+            i
+        } else {
+            self.lookup_remote_version(version).await?
+        };
         let path = build_version_path(&info.version);
 
         Ok(if path.exists() {
@@ -239,18 +243,13 @@ impl Repository {
     pub fn lookup_local_version(&self, version_req: &NodeVersion) -> Result<&VersionMetadata> {
         let versions = &self.installed_versions;
         let version = match version_req {
-            NodeVersion::Latest => versions
-                .latest()
-                .ok_or_else(|| VersionError::not_installed("latest"))?,
-            NodeVersion::LatestLts => versions
-                .latest_lts()
-                .ok_or_else(|| VersionError::not_installed("lts"))?,
             NodeVersion::Lts(lts) => versions
                 .lts(lts)
                 .ok_or_else(|| VersionError::unknown_version(lts.to_owned()))?,
             NodeVersion::Req(req) => versions
                 .fulfilling(req)
                 .ok_or_else(|| VersionError::unfulfillable_version(req.to_owned()))?,
+            _ => return Err(VersionError::unsupported(version_req.to_owned()).into()),
         };
 
         Ok(version)
