@@ -75,7 +75,7 @@ pub struct ExecArgs {
     pub command: String,
 
     /// The arguments for the command
-    #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+    #[arg(last = true, allow_hyphen_values = true)]
     pub args: Vec<OsString>,
 }
 

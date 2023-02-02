@@ -42,7 +42,11 @@ impl NodeApp {
 
     #[cfg(not(windows))]
     async fn write_wrapper_script(&self, path: &Path) -> Result<(), io::Error> {
-        fs::write(path, format!("#!/bin/sh\nnenv exec {} \"$@\"", self.name)).await?;
+        fs::write(
+            path,
+            format!("#!/bin/sh\nnenv exec {} -- \"$@\"", self.name),
+        )
+        .await?;
         let src_metadata = self.path.metadata()?;
         fs::set_permissions(&path, src_metadata.permissions()).await?;
 
@@ -53,7 +57,7 @@ impl NodeApp {
     async fn write_wrapper_script(&self, path: &Path) -> Result<(), io::Error> {
         fs::write(
             path.with_extension("bat"),
-            format!("@echo off\nnenv exec {} %*", self.name),
+            format!("@echo off\nnenv exec {} -- %*", self.name),
         )
         .await?;
         let src_metadata = self.path.metadata()?;

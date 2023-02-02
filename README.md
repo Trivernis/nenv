@@ -2,12 +2,14 @@
 
 A Node environment manager written in rust.
 
+
 ## Features
 
 - Written in fast and safe rust
 - Multiple active nodejs versions at the same time
 - Configuration for project specific versions
 - Version matching with semver expressions
+
 
 ## Installation
 
@@ -46,6 +48,20 @@ nenv default latest
 
 ```sh
 nenv refresh
+```
+
+### Pinning binaries to specific node versions
+
+```sh
+# rome will always be executed with the lts version
+nenv pin rome lts
+
+# tsc will always be executed with the latest typescript version
+nenv pin tsc latest
+
+# undo
+nenv unpin rome
+nenv unpin tsc
 ```
 
 ### List nodejs versions
