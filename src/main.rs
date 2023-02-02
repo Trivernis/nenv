@@ -1,6 +1,6 @@
 use std::{env, process};
 
-use args::Args;
+use args::{Args, PinArgs, UnpinArgs};
 use clap::Parser;
 
 use nenv::Nenv;
@@ -51,6 +51,10 @@ async fn main() -> Result<()> {
         args::Command::ListVersions => nenv.list_versions().await,
         args::Command::Init => nenv.init_nenv().await,
         args::Command::ClearCache => nenv.clear_cache().await,
+        args::Command::Pin(PinArgs { command, version }) => {
+            nenv.pin_command(command, version).await
+        }
+        args::Command::Unpin(UnpinArgs { command }) => nenv.unpin_command(command).await,
         _ => xkcd_unreachable!(),
     }?;
 

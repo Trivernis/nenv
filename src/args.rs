@@ -58,6 +58,14 @@ pub enum Command {
     /// Clears the download cache
     #[command()]
     ClearCache,
+
+    /// Pins binary to a specific node version
+    #[command()]
+    Pin(PinArgs),
+
+    /// Unpins a command
+    #[command()]
+    Unpin(UnpinArgs),
 }
 
 #[derive(Clone, Debug, Parser)]
@@ -69,6 +77,20 @@ pub struct ExecArgs {
     /// The arguments for the command
     #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
     pub args: Vec<OsString>,
+}
+
+#[derive(Clone, Debug, Parser)]
+pub struct PinArgs {
+    /// The command to pin
+    pub command: String,
+    /// The version to pin the command to
+    pub version: NodeVersion,
+}
+
+#[derive(Clone, Debug, Parser)]
+pub struct UnpinArgs {
+    /// The command to unpin
+    pub command: String,
 }
 
 #[derive(Clone, Debug, Parser)]

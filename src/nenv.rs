@@ -1,7 +1,7 @@
 use std::{ffi::OsString, str::FromStr};
 
 use crate::{
-    config::ConfigAccess,
+    config::{ConfigAccess, ExecutableConfig},
     consts::{BIN_DIR, CACHE_DIR, VERSION_FILE_PATH},
     error::VersionError,
     mapper::Mapper,
@@ -220,6 +220,35 @@ impl Nenv {
             .into_diagnostic()
             .context("Creating cache directory")?;
         println!("Cleared download cache.");
+
+        Ok(())
+    }
+
+    /// Pins a given command
+    #[tracing::instrument(skip(self))]
+    pub async fn pin_command(&self, command: String, version: NodeVersion) -> Result<()> {
+        let mut config = self.config.get_mut().await;
+        config.bins.insert(
+            command.clone(),
+            ExecutableConfig {
+                node_version: version.clone(),
+            },
+        );
+        println!(
+            "Pinned {} to {}",
+            command.bold(),
+            version.to_string().yellow().bold()
+        );
+
+        Ok(())
+    }
+
+    /// Unpins a given command
+    #[tracing::instrument(skip(self))]
+    pub async fn unpin_command(&self, command: String) -> Result<()> {
+        let mut config = self.config.get_mut().await;
+        config.bins.remove(&command);
+        println!("Unpinned {}", command.bold());
 
         Ok(())
     }

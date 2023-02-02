@@ -17,6 +17,7 @@ use crate::{
 use self::value::Config;
 
 mod value;
+pub use value::*;
 
 #[derive(Clone)]
 pub struct ConfigAccess {
