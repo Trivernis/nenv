@@ -10,21 +10,27 @@ impl NodePath {
         Self { base }
     }
 
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(not(windows))]
     pub fn bin(&self) -> PathBuf {
-        self.base.join("bin").canonicalize().unwrap()
+        self.base.join("bin")
     }
 
+    #[cfg(windows)]
+    pub fn bin(&self) -> PathBuf {
+        self.base.to_owned()
+    }
+
+    #[cfg(not(windows))]
     pub fn lib(&self) -> PathBuf {
-        self.base.join("lib").canonicalize().unwrap()
+        self.base.join("lib")
+    }
+
+    #[cfg(windows)]
+    pub fn lib(&self) -> PathBuf {
+        self.base.to_owned()
     }
 
     pub fn node_modules(&self) -> PathBuf {
         self.lib().join("node_modules")
-    }
-
-    #[cfg(target_os = "windows")]
-    pub fn bin(&self) -> PathBuf {
-        self.base.to_owned()
     }
 }
