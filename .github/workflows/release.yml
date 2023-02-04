@@ -51,6 +51,7 @@ jobs:
           draft: true
           # (required) GitHub token for creating GitHub Releases.
           token: ${{ secrets.GITHUB_TOKEN }}
+          changelog: CHANGELOG.md
 
 
   # Build and packages all the things
