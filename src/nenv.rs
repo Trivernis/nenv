@@ -1,5 +1,3 @@
-use std::{ffi::OsString, str::FromStr};
-
 use crate::{
     config::{ConfigAccess, ExecutableConfig},
     consts::{BIN_DIR, CACHE_DIR, VERSION_FILE_PATH},
@@ -12,6 +10,7 @@ use crate::{
 use crossterm::style::Stylize;
 use dialoguer::{theme::ColorfulTheme, Input, Select};
 use miette::{Context, IntoDiagnostic, Result};
+use std::{ffi::OsString, str::FromStr};
 use tokio::fs;
 
 pub struct Nenv {
@@ -196,6 +195,7 @@ impl Nenv {
         };
 
         self.repo.install_version(&version).await?;
+        self.get_mapper().await?.remap_additive().await?;
 
         println!("{}", "Initialized!".green());
         println!(
