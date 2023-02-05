@@ -195,6 +195,7 @@ impl Nenv {
         };
 
         self.repo.install_version(&version).await?;
+        self.active_version = version;
         self.get_mapper().await?.remap_additive().await?;
 
         println!("{}", "Initialized!".green());
